@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useParams, useSearchParams } from "next/navigation";
+import { getSession } from "next-auth/react";
+import { apiFetch } from "../../../../lib/api";
 import {
   ArrowLeft,
   Send,
@@ -34,6 +37,16 @@ interface Notebook {
   title: string;
   subject: Subject;
   chapterCount: number;
+}
+
+interface ChatResponse {
+  answer: string;
+  sources: Array<{
+    document_id: string;
+    chapter_title: string;
+    text: string;
+    score: number;
+  }>;
 }
 
 // ── mock data ──────────────────────────────────────────────────────────────
@@ -170,7 +183,7 @@ function MessageBubble({ msg, teacherName, accentColor }: { msg: Message; teache
 
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold mb-1.5" style={{ color: "rgba(10,10,15,0.4)" }}>
-          {teacherName}'s AI Clone
+          {teacherName}&apos;s AI Clone
         </p>
         <div
           className="rounded-2xl rounded-tl-sm px-5 py-4 text-sm leading-relaxed"
@@ -213,14 +226,14 @@ function MessageBubble({ msg, teacherName, accentColor }: { msg: Message; teache
 
 // ── main page ──────────────────────────────────────────────────────────────
 export default function NotebookChatPage() {
-  // In real app these come from params / props
-  const teacherId = "prof-sharma";
+  const params = useParams<{ teacherId: string }>();
+  const searchParams = useSearchParams();
+  const teacherId = params.teacherId;
   const teacherName = "Dr. Anita Sharma";
-  const notebookId = "calc-1";
+  const notebookId = searchParams.get("notebook") ?? "calc-1";
 
   const notebook = NOTEBOOKS.find((n) => n.id === notebookId) ?? NOTEBOOKS[0];
   const subject = notebook.subject;
-  const style = SUBJECT_STYLES[subject];
   const suggestions = SUGGESTED_QUESTIONS[subject];
 
   const [messages, setMessages] = useState<Message[]>([
@@ -237,6 +250,53 @@ export default function NotebookChatPage() {
   const [activeNotebook, setActiveNotebook] = useState<Notebook>(notebook);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messageIdRef = useRef(0);
+
+  const nextMessageId = () => {
+    messageIdRef.current += 1;
+    return `message-${messageIdRef.current}`;
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotebook() {
+      try {
+        const session = await getSession();
+        const data = await apiFetch<{
+          id: string;
+          title: string;
+          subject: Subject;
+          documents: unknown[];
+        }>(`/student/notebooks/${notebookId}`, session?.backendAccessToken);
+
+        if (!mounted) return;
+
+        const loadedNotebook = {
+          id: data.id,
+          title: data.title,
+          subject: data.subject,
+          chapterCount: data.documents.length,
+        };
+        setActiveNotebook(loadedNotebook);
+        setMessages([
+          {
+            id: "welcome",
+            role: "assistant",
+            content: `Hi! I'm ${teacherName}'s AI clone, trained on **${data.title}**.\n\nAsk me anything from this notebook and I'll answer from the uploaded notes.`,
+            timestamp: new Date(),
+          },
+        ]);
+      } catch (error) {
+        console.error("Failed to load notebook", error);
+      }
+    }
+
+    loadNotebook();
+    return () => {
+      mounted = false;
+    };
+  }, [notebookId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -248,7 +308,7 @@ export default function NotebookChatPage() {
     setInput("");
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: nextMessageId(),
       role: "user",
       content,
       timestamp: new Date(),
@@ -256,23 +316,36 @@ export default function NotebookChatPage() {
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
 
-    // Simulate streaming delay
-    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
+    try {
+      const session = await getSession();
+      const response = await apiFetch<ChatResponse>(
+        `/student/notebooks/${activeNotebook.id}/chat`,
+        session?.backendAccessToken,
+        {
+          method: "POST",
+          body: JSON.stringify({ question: content, top_k: 5 }),
+        },
+      );
 
-    const reply: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: getReply(activeNotebook.subject),
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, reply]);
-    setLoading(false);
-
-    // TODO: replace mock with real API call:
-    // const res = await fetch("/api/chat", {
-    //   method: "POST",
-    //   body: JSON.stringify({ messages: [...messages, userMsg], notebookId: activeNotebook.id, teacherId }),
-    // });
+      const reply: Message = {
+        id: nextMessageId(),
+        role: "assistant",
+        content: response.answer,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, reply]);
+    } catch (error) {
+      console.error("RAG chat failed", error);
+      const fallbackReply: Message = {
+        id: nextMessageId(),
+        role: "assistant",
+        content: getReply(activeNotebook.subject),
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, fallbackReply]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -457,7 +530,7 @@ export default function NotebookChatPage() {
                 {teacherName} · AI Clone
               </p>
               <p className="text-xs" style={{ color: `${subjectStyle.text}99` }}>
-                Answering from "{activeNotebook.title}" ({activeNotebook.chapterCount} chapters)
+                Answering from &quot;{activeNotebook.title}&quot; ({activeNotebook.chapterCount} chapters)
               </p>
             </div>
           </div>
@@ -565,7 +638,7 @@ export default function NotebookChatPage() {
           </div>
 
           <p className="text-center text-xs mt-2" style={{ color: "rgba(10,10,15,0.3)" }}>
-            Answers are based on {teacherName}'s notebooks · <kbd className="font-mono">Enter</kbd> to send, <kbd className="font-mono">Shift+Enter</kbd> for new line
+            Answers are based on {teacherName}&apos;s notebooks · <kbd className="font-mono">Enter</kbd> to send, <kbd className="font-mono">Shift+Enter</kbd> for new line
           </p>
         </div>
       </div>

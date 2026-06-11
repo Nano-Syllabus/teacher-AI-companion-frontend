@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { getSession } from "next-auth/react";
+import { API_BASE_URL, apiFetch, getStoredBackendToken } from "../../../lib/api";
 import {
   ArrowLeft, BookOpen, Upload, X, FileText, CheckCircle2,
   Plus, Loader2, ChevronDown, Sparkles, GripVertical,
@@ -12,6 +14,7 @@ type Difficulty = "Beginner" | "Intermediate" | "Advanced";
 
 interface UploadedFile {
   id: string;
+  file: File;
   name: string;
   size: number;
   status: "uploading" | "done" | "error";
@@ -59,6 +62,7 @@ export default function CreateNotebookPage() {
 
   const simulateUpload = (file: File): UploadedFile => ({
     id: Math.random().toString(36).slice(2),
+    file,
     name: file.name,
     size: file.size,
     status: "uploading",
@@ -108,10 +112,48 @@ export default function CreateNotebookPage() {
 
   const handlePublish = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 1800));
-    setSaving(false);
-    setSaved(true);
-    // TODO: POST /api/notebooks { title, subject, description, difficulty, isFree, files }
+    try {
+      const session = await getSession();
+      const notebook = await apiFetch<{ id: string }>(
+        "/notebooks/",
+        session?.backendAccessToken,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title,
+            subject,
+            description,
+            difficulty,
+            is_free: isFree,
+          }),
+        },
+      );
+
+      const token = getStoredBackendToken(session?.backendAccessToken);
+      for (const uploaded of files) {
+        const formData = new FormData();
+        formData.append("file", uploaded.file);
+        formData.append("chapter_title", uploaded.chapterTitle);
+
+        const response = await fetch(`${API_BASE_URL}/notebooks/${notebook.id}/documents`, {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+      }
+
+      await apiFetch(`/notebooks/${notebook.id}/publish`, session?.backendAccessToken, {
+        method: "PATCH",
+      });
+
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const canProceed = title.trim() && subject && description.trim();
@@ -396,7 +438,7 @@ export default function CreateNotebookPage() {
                 <p className="text-xs font-semibold" style={{ color: "rgba(10,10,15,0.45)" }}>
                   {files.length} DOCUMENT{files.length > 1 ? "S" : ""} — each becomes a chapter
                 </p>
-                {files.map((file, idx) => (
+                {files.map((file) => (
                   <div
                     key={file.id}
                     className="rounded-2xl p-4 transition-all duration-200"

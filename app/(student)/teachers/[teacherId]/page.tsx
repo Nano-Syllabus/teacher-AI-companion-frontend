@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { getSession } from "next-auth/react";
+import { apiFetch } from "../../../lib/api";
 import {
   ArrowLeft,
   BookOpen,
@@ -20,14 +23,17 @@ type Subject = "Mathematics" | "Physics" | "Computer Science";
 
 interface Notebook {
   id: string;
+  teacher_id?: string;
   title: string;
   description: string;
   subject: Subject;
-  chapterCount: number;
+  chapterCount?: number;
+  doc_count?: number;
   pageCount: number;
   lastUpdated: string;
   difficulty: "Beginner" | "Intermediate" | "Advanced";
   free: boolean;
+  is_free?: boolean;
 }
 
 const SUBJECT_COLORS: Record<Subject, { bg: string; text: string; border: string }> = {
@@ -214,7 +220,7 @@ function NotebookCard({ notebook, teacherId }: { notebook: Notebook; teacherId: 
         <div className="flex items-center gap-1">
           <BookOpen size={12} style={{ color: "rgba(10,10,15,0.35)" }} />
           <span className="text-xs" style={{ color: "rgba(10,10,15,0.45)" }}>
-            {notebook.chapterCount} chapters
+            {notebook.chapterCount ?? notebook.doc_count ?? 0} chapters
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -245,13 +251,61 @@ function NotebookCard({ notebook, teacherId }: { notebook: Notebook; teacherId: 
 }
 
 export default function TeacherProfilePage() {
+  const params = useParams<{ teacherId: string }>();
+  const teacherId = params.teacherId;
+  const [notebooks, setNotebooks] = useState<Notebook[]>(NOTEBOOKS);
   const [activeSubject, setActiveSubject] = useState<Subject | "All">("All");
 
-  const subjects = Array.from(new Set(NOTEBOOKS.map((n) => n.subject))) as Subject[];
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotebooks() {
+      try {
+        const session = await getSession();
+        const data = await apiFetch<Array<{
+          id: string;
+          teacher_id: string;
+          title: string;
+          description: string;
+          subject: Subject;
+          difficulty: "Beginner" | "Intermediate" | "Advanced";
+          is_free: boolean;
+          doc_count: number;
+          updated_at: string;
+        }>>(`/student/teachers/${teacherId}/notebooks`, session?.backendAccessToken);
+
+        if (!mounted || data.length === 0) return;
+
+        setNotebooks(data.map((notebook) => ({
+          id: notebook.id,
+          teacher_id: notebook.teacher_id,
+          title: notebook.title,
+          description: notebook.description,
+          subject: notebook.subject,
+          chapterCount: notebook.doc_count,
+          doc_count: notebook.doc_count,
+          pageCount: 0,
+          lastUpdated: new Date(notebook.updated_at).toLocaleDateString(),
+          difficulty: notebook.difficulty,
+          free: notebook.is_free,
+          is_free: notebook.is_free,
+        })));
+      } catch (error) {
+        console.error("Failed to load teacher notebooks", error);
+      }
+    }
+
+    loadNotebooks();
+    return () => {
+      mounted = false;
+    };
+  }, [teacherId]);
+
+  const subjects = Array.from(new Set(notebooks.map((n) => n.subject))) as Subject[];
 
   const filtered = activeSubject === "All"
-    ? NOTEBOOKS
-    : NOTEBOOKS.filter((n) => n.subject === activeSubject);
+    ? notebooks
+    : notebooks.filter((n) => n.subject === activeSubject);
 
   const groupedBySubject = subjects.reduce<Record<Subject, Notebook[]>>((acc, sub) => {
     acc[sub] = filtered.filter((n) => n.subject === sub);
@@ -345,7 +399,7 @@ export default function TeacherProfilePage() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <BookOpen size={14} style={{ color: "rgba(10,10,15,0.4)" }} />
-                  <span className="text-sm" style={{ color: "rgba(10,10,15,0.6)" }}>{NOTEBOOKS.length} notebooks</span>
+                <span className="text-sm" style={{ color: "rgba(10,10,15,0.6)" }}>{notebooks.length} notebooks</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Clock size={14} style={{ color: "rgba(10,10,15,0.4)" }} />
@@ -403,11 +457,11 @@ export default function TeacherProfilePage() {
                   color: activeSubject === "All" ? "#f5f0e8" : "rgba(10,10,15,0.55)",
                 }}
               >
-                All ({NOTEBOOKS.length})
+                All ({notebooks.length})
               </button>
               {subjects.map((s) => {
                 const c = SUBJECT_COLORS[s];
-                const count = NOTEBOOKS.filter((n) => n.subject === s).length;
+                const count = notebooks.filter((n) => n.subject === s).length;
                 return (
                   <button
                     key={s}
@@ -455,7 +509,7 @@ export default function TeacherProfilePage() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {books.map((nb) => (
-                        <NotebookCard key={nb.id} notebook={nb} teacherId="prof-sharma" />
+                        <NotebookCard key={nb.id} notebook={nb} teacherId={teacherId} />
                       ))}
                     </div>
                   </div>
@@ -465,7 +519,7 @@ export default function TeacherProfilePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filtered.map((nb) => (
-                <NotebookCard key={nb.id} notebook={nb} teacherId="prof-sharma" />
+                <NotebookCard key={nb.id} notebook={nb} teacherId={teacherId} />
               ))}
             </div>
           )}

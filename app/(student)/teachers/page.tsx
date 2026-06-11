@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { getSession } from "next-auth/react";
 import { Search, BookOpen, Star, Users, SlidersHorizontal, X, GraduationCap, Sparkles } from "lucide-react";
+import { apiFetch } from "../../lib/api";
 
 type Subject = "Mathematics" | "Physics" | "Chemistry" | "Biology" | "History" | "Literature" | "Computer Science" | "Economics";
 
@@ -103,6 +105,14 @@ const TEACHERS: Teacher[] = [
     avatarColor: "#0891b2",
   },
 ];
+
+interface ApiTeacher {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string | null;
+  notebook_count: number;
+}
 
 const ALL_SUBJECTS: Subject[] = ["Mathematics", "Physics", "Chemistry", "Biology", "History", "Literature", "Computer Science", "Economics"];
 
@@ -211,10 +221,45 @@ function TeacherCard({ teacher }: { teacher: Teacher }) {
 }
 
 export default function StudentDiscoverPage() {
+  const [teachers, setTeachers] = useState<Teacher[]>(TEACHERS);
   const [query, setQuery] = useState("");
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
   const [sortBy, setSortBy] = useState<"rating" | "students" | "notebooks">("rating");
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadTeachers() {
+      try {
+        const session = await getSession();
+        const data = await apiFetch<ApiTeacher[]>("/student/teachers", session?.backendAccessToken);
+        if (!mounted || data.length === 0) return;
+
+        setTeachers(data.map((teacher) => ({
+          id: teacher.id,
+          name: teacher.name,
+          title: "Teacher",
+          institution: teacher.email,
+          subjects: [],
+          notebookCount: teacher.notebook_count,
+          studentCount: 0,
+          rating: 0,
+          bio: "Published notebooks are available for student chat.",
+          avatar: teacher.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "T",
+          avatarColor: "#d97706",
+          featured: false,
+        })));
+      } catch (error) {
+        console.error("Failed to load teachers", error);
+      }
+    }
+
+    loadTeachers();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const toggleSubject = (s: Subject) => {
     setSelectedSubjects((prev) =>
@@ -223,7 +268,7 @@ export default function StudentDiscoverPage() {
   };
 
   const filtered = useMemo(() => {
-    let list = TEACHERS;
+    let list = teachers;
 
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -247,7 +292,7 @@ export default function StudentDiscoverPage() {
       if (sortBy === "students") return b.studentCount - a.studentCount;
       return b.notebookCount - a.notebookCount;
     });
-  }, [query, selectedSubjects, sortBy]);
+  }, [teachers, query, selectedSubjects, sortBy]);
 
   return (
     <div className="min-h-screen" style={{ background: "#f5f0e8" }}>
@@ -278,7 +323,7 @@ export default function StudentDiscoverPage() {
             Find your <em style={{ color: "#d97706" }}>teacher.</em>
           </h1>
           <p className="text-sm" style={{ color: "rgba(10,10,15,0.5)" }}>
-            Browse {TEACHERS.length} teachers across {ALL_SUBJECTS.length} subjects
+            Browse {teachers.length} teachers across {ALL_SUBJECTS.length} subjects
           </p>
         </div>
 

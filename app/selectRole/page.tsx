@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, GraduationCap, ArrowRight, Sparkles } from "lucide-react";
+import { getSession } from "next-auth/react";
+import { apiFetch } from "../lib/api";
 
 type Role = "teacher" | "student";
 
@@ -14,9 +16,22 @@ export default function RoleSelectPage() {
   const handleContinue = async () => {
     if (!selected) return;
     setLoading(true);
-    // TODO: persist role to DB / session
-    await new Promise((r) => setTimeout(r, 800));
-    router.push(selected === "teacher" ? "/dashboard" : "/teachers");
+    try {
+      const session = await getSession();
+      const backendSession = await apiFetch<{ access_token: string; role: Role }>(
+        "/auth/set-role",
+        session?.backendAccessToken,
+        {
+          method: "POST",
+          body: JSON.stringify({ role: selected }),
+        },
+      );
+      localStorage.setItem("backendAccessToken", backendSession.access_token);
+      localStorage.setItem("role", backendSession.role);
+      router.push(selected === "teacher" ? "/dashboard" : "/teachers");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

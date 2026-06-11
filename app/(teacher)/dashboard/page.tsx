@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getSession } from "next-auth/react";
+import { apiFetch } from "../../lib/api";
 import {
   BookOpen, Plus, Users, Star, Eye, Pencil, Trash2,
   MoreVertical, FileText, TrendingUp, MessageSquare,
@@ -221,6 +223,52 @@ function NotebookRow({ notebook, onDelete }: { notebook: Notebook; onDelete: (id
 export default function TeacherDashboard() {
   const [notebooks, setNotebooks] = useState<Notebook[]>(MOCK_NOTEBOOKS);
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotebooks() {
+      try {
+        const session = await getSession();
+        const data = await apiFetch<Array<{
+          id: string;
+          title: string;
+          subject: Subject;
+          description: string;
+          doc_count: number;
+          student_count: number;
+          views: number;
+          rating: number;
+          updated_at: string;
+          published: boolean;
+          is_free: boolean;
+        }>>("/notebooks/", session?.backendAccessToken);
+
+        if (!mounted || data.length === 0) return;
+
+        setNotebooks(data.map((notebook) => ({
+          id: notebook.id,
+          title: notebook.title,
+          subject: notebook.subject,
+          description: notebook.description,
+          docCount: notebook.doc_count,
+          studentCount: notebook.student_count,
+          views: notebook.views,
+          rating: notebook.rating,
+          lastUpdated: new Date(notebook.updated_at).toLocaleDateString(),
+          published: notebook.published,
+          free: notebook.is_free,
+        })));
+      } catch (error) {
+        console.error("Failed to load notebooks", error);
+      }
+    }
+
+    loadNotebooks();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filtered = notebooks.filter(n =>
     filter === "all" ? true : filter === "published" ? n.published : !n.published
