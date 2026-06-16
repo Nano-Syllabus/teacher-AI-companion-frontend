@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { getSession } from "next-auth/react";
 import { API_BASE_URL, apiFetch, getStoredBackendToken } from "../../../lib/api";
+// qrcode npm package no longer needed — QR is generated server-side
 import {
   ArrowLeft, BookOpen, Upload, X, FileText, CheckCircle2,
-  Plus, Loader2, ChevronDown, Sparkles, GripVertical,
+  Plus, Loader2, ChevronDown, Sparkles, GripVertical
 } from "lucide-react";
 
+import SuccessScreen from "@/app/components/notebook/SuccesScreen";
 type Subject = "Mathematics" | "Physics" | "Chemistry" | "Biology" | "Computer Science" | "Economics" | "History" | "Literature";
 type Difficulty = "Beginner" | "Intermediate" | "Advanced";
 
@@ -20,6 +22,14 @@ interface UploadedFile {
   status: "uploading" | "done" | "error";
   progress: number;
   chapterTitle: string;
+}
+
+interface PublishedNotebook {
+  id: string;
+  title: string;
+  teacherId: string;
+  qrCode: string | null;   // base64 PNG from backend: "data:image/png;base64,..."
+  qrUrl: string | null;    // plain URL the QR encodes
 }
 
 const SUBJECTS: Subject[] = ["Mathematics", "Physics", "Chemistry", "Biology", "Computer Science", "Economics", "History", "Literature"];
@@ -41,6 +51,8 @@ function formatBytes(bytes: number) {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
+// ── Main page ──────────────────────────────────────────────────────────────────
+
 export default function CreateNotebookPage() {
   // Notebook meta
   const [title, setTitle] = useState("");
@@ -57,7 +69,8 @@ export default function CreateNotebookPage() {
 
   // Form state
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [publishedNotebook, setPublishedNotebook] = useState<PublishedNotebook | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
 
   const simulateUpload = (file: File): UploadedFile => ({
@@ -75,11 +88,9 @@ export default function CreateNotebookPage() {
       ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
        "text/plain", "application/msword"].includes(f.type)
     );
-
     const newFiles = arr.map(simulateUpload);
     setFiles((prev) => [...prev, ...newFiles]);
 
-    // Simulate upload progress per file
     newFiles.forEach((nf) => {
       let progress = 0;
       const iv = setInterval(() => {
@@ -87,13 +98,9 @@ export default function CreateNotebookPage() {
         if (progress >= 100) {
           progress = 100;
           clearInterval(iv);
-          setFiles((prev) =>
-            prev.map((f) => f.id === nf.id ? { ...f, progress: 100, status: "done" } : f)
-          );
+          setFiles((prev) => prev.map((f) => f.id === nf.id ? { ...f, progress: 100, status: "done" } : f));
         } else {
-          setFiles((prev) =>
-            prev.map((f) => f.id === nf.id ? { ...f, progress } : f)
-          );
+          setFiles((prev) => prev.map((f) => f.id === nf.id ? { ...f, progress } : f));
         }
       }, 200);
     });
@@ -112,93 +119,103 @@ export default function CreateNotebookPage() {
 
   const handlePublish = async () => {
     setSaving(true);
+    setPublishError(null);
     try {
       const session = await getSession();
-      const notebook = await apiFetch<{ id: string }>(
+      const token = getStoredBackendToken(session?.backendAccessToken);
+
+      // 1. Create notebook
+      const notebook = await apiFetch<{ id: string; teacher_id: string }>(
         "/notebooks/",
         session?.backendAccessToken,
         {
           method: "POST",
-          body: JSON.stringify({
-            title,
-            subject,
-            description,
-            difficulty,
-            is_free: isFree,
-          }),
+          body: JSON.stringify({ title, subject, description, difficulty, is_free: isFree }),
         },
       );
 
-      const token = getStoredBackendToken(session?.backendAccessToken);
+      // 2. Upload documents
       for (const uploaded of files) {
         const formData = new FormData();
         formData.append("file", uploaded.file);
         formData.append("chapter_title", uploaded.chapterTitle);
-
         const response = await fetch(`${API_BASE_URL}/notebooks/${notebook.id}/documents`, {
           method: "POST",
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           body: formData,
         });
-
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
+        if (!response.ok) throw new Error(await response.text());
       }
 
-      await apiFetch(`/notebooks/${notebook.id}/publish`, session?.backendAccessToken, {
+      // 3. Publish (RAG trains async) — read response to get qr_code stored by backend
+      const published = await apiFetch<{
+        id: string;
+        teacher_id: string;
+        qr_code: string | null;
+        qr_url: string | null;
+      }>(`/notebooks/${notebook.id}/publish`, session?.backendAccessToken, {
         method: "PATCH",
       });
 
-      setSaved(true);
+      // 4. Store published info including backend-generated QR
+      setPublishedNotebook({
+        id: published.id,
+        title,
+        teacherId: published.teacher_id,
+        qrCode: published.qr_code,
+        qrUrl: published.qr_url,
+      });
+
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
+  const resetForm = () => {
+    setPublishedNotebook(null);
+    setStep(1);
+    setTitle("");
+    setSubject("");
+    setDescription("");
+    setFiles([]);
+    setPublishError(null);
+  };
+
   const canProceed = title.trim() && subject && description.trim();
   const canPublish = files.length > 0 && files.every((f) => f.status === "done");
 
-  if (saved) {
+  // ── Success screen ─────────────────────────────────────────────────────
+  if (publishedNotebook) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "#f5f0e8" }}>
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6"
-            style={{ background: "#0a0a0f" }}>
-            <CheckCircle2 size={36} color="#d97706" />
-          </div>
-          <h1 className="font-bold text-3xl mb-3" style={{ color: "#0a0a0f" }}>Notebook published!</h1>
-          <p className="text-sm mb-8" style={{ color: "rgba(10,10,15,0.5)" }}>
-            Your AI clone is now training on <strong>{title}</strong>. Students can start chatting with it shortly.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link href="/dashboard"
-              className="px-5 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105"
-              style={{ background: "rgba(10,10,15,0.08)", color: "#0a0a0f" }}>
-              Back to Dashboard
-            </Link>
-            <button onClick={() => { setSaved(false); setStep(1); setTitle(""); setSubject(""); setDescription(""); setFiles([]); }}
-              className="px-5 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105"
-              style={{ background: "#0a0a0f", color: "#f5f0e8" }}>
-              <Plus size={14} className="inline mr-1.5" />
-              New Notebook
-            </button>
-          </div>
-        </div>
-      </div>
+      <SuccessScreen
+        title={title}
+        notebook={publishedNotebook}
+        onReset={resetForm}
+      />
     );
   }
 
+  // ── Form ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen" style={{ background: "#f5f0e8" }}>
+    <div className="min-h-screen bg-[#F7F7F6]">
 
       {/* Top bar */}
-      <div className="sticky top-0 z-20 px-6 py-4"
-        style={{ background: "rgba(245,240,232,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(10,10,15,0.08)" }}>
+      <div
+        className="sticky top-0 z-20 px-6 py-4"
+        style={{
+          background: "rgba(245,240,232,0.9)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(10,10,15,0.08)",
+        }}
+      >
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-          <Link href="/dashboard"
+          <Link
+            href="/dashboard"
             className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-60"
-            style={{ color: "rgba(10,10,15,0.55)" }}>
+            style={{ color: "rgba(10,10,15,0.55)" }}
+          >
             <ArrowLeft size={15} /> Dashboard
           </Link>
 
@@ -215,7 +232,9 @@ export default function CreateNotebookPage() {
                 >
                   {step > s ? "✓" : s}
                 </div>
-                {s < 2 && <div className="w-8 h-px" style={{ background: step > s ? "#d97706" : "rgba(10,10,15,0.15)" }} />}
+                {s < 2 && (
+                  <div className="w-8 h-px" style={{ background: step > s ? "#d97706" : "rgba(10,10,15,0.15)" }} />
+                )}
               </div>
             ))}
             <span className="text-xs ml-2 font-medium" style={{ color: "rgba(10,10,15,0.45)" }}>
@@ -232,7 +251,7 @@ export default function CreateNotebookPage() {
 
       <div className="max-w-3xl mx-auto px-6 py-10">
 
-        {/* ── STEP 1: Notebook Details ── */}
+        {/* ── STEP 1 ── */}
         {step === 1 && (
           <>
             <div className="mb-8">
@@ -246,9 +265,7 @@ export default function CreateNotebookPage() {
             <div className="space-y-5">
               {/* Title */}
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: "rgba(10,10,15,0.55)" }}>
-                  NOTEBOOK TITLE *
-                </label>
+                <label className="block text-xs font-semibold mb-2" style={{ color: "rgba(10,10,15,0.55)" }}>NOTEBOOK TITLE *</label>
                 <input
                   type="text"
                   value={title}
@@ -265,9 +282,7 @@ export default function CreateNotebookPage() {
 
               {/* Subject */}
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: "rgba(10,10,15,0.55)" }}>
-                  SUBJECT *
-                </label>
+                <label className="block text-xs font-semibold mb-2" style={{ color: "rgba(10,10,15,0.55)" }}>SUBJECT *</label>
                 <div className="relative">
                   <button
                     onClick={() => setSubjectOpen(!subjectOpen)}
@@ -287,8 +302,10 @@ export default function CreateNotebookPage() {
                     <ChevronDown size={15} style={{ transform: subjectOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                   </button>
                   {subjectOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-20"
-                      style={{ background: "#fff", border: "1.5px solid rgba(10,10,15,0.1)", boxShadow: "0 8px 24px rgba(10,10,15,0.1)" }}>
+                    <div
+                      className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-20"
+                      style={{ background: "#fff", border: "1.5px solid rgba(10,10,15,0.1)", boxShadow: "0 8px 24px rgba(10,10,15,0.1)" }}
+                    >
                       {SUBJECTS.map((s) => (
                         <button
                           key={s}
@@ -307,9 +324,7 @@ export default function CreateNotebookPage() {
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: "rgba(10,10,15,0.55)" }}>
-                  DESCRIPTION *
-                </label>
+                <label className="block text-xs font-semibold mb-2" style={{ color: "rgba(10,10,15,0.55)" }}>DESCRIPTION *</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -324,7 +339,7 @@ export default function CreateNotebookPage() {
                 />
               </div>
 
-              {/* Difficulty + Free row */}
+              {/* Difficulty + Free */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold mb-2" style={{ color: "rgba(10,10,15,0.55)" }}>DIFFICULTY</label>
@@ -360,9 +375,8 @@ export default function CreateNotebookPage() {
                 </div>
               </div>
 
-              {/* AI training note */}
-              <div className="flex items-start gap-3 p-4 rounded-xl"
-                style={{ background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.2)" }}>
+              {/* AI note */}
+              <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.2)" }}>
                 <Sparkles size={15} style={{ color: "#d97706", flexShrink: 0, marginTop: 1 }} />
                 <p className="text-xs leading-relaxed" style={{ color: "rgba(10,10,15,0.6)" }}>
                   Your documents will train an AI clone that answers exactly like you teach.
@@ -376,13 +390,13 @@ export default function CreateNotebookPage() {
                 className="w-full py-4 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-[1.01] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                 style={{ background: "#0a0a0f", color: "#f5f0e8" }}
               >
-                Continue to Upload →
+                Continue to upload →
               </button>
             </div>
           </>
         )}
 
-        {/* ── STEP 2: Upload Documents ── */}
+        {/* ── STEP 2 ── */}
         {step === 2 && (
           <>
             <div className="mb-8">
@@ -428,7 +442,7 @@ export default function CreateNotebookPage() {
                 <p className="text-sm" style={{ color: "rgba(10,10,15,0.45)" }}>
                   or <span style={{ color: "#d97706", fontWeight: 600 }}>browse files</span> from your computer
                 </p>
-                <p className="text-xs mt-2" style={{ color: "rgba(10,10,15,0.3)" }}>PDF · DOCX · TXT — up to 50MB each</p>
+                <p className="text-xs mt-2" style={{ color: "rgba(10,10,15,0.3)" }}>PDF · DOCX · TXT — up to 50 MB each</p>
               </div>
             </div>
 
@@ -446,32 +460,22 @@ export default function CreateNotebookPage() {
                   >
                     <div className="flex items-start gap-3">
                       <GripVertical size={16} className="mt-1 flex-shrink-0" style={{ color: "rgba(10,10,15,0.2)" }} />
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: "rgba(10,10,15,0.06)" }}
-                      >
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(10,10,15,0.06)" }}>
                         <FileText size={16} style={{ color: "rgba(10,10,15,0.45)" }} />
                       </div>
-
                       <div className="flex-1 min-w-0">
-                        {/* Editable chapter title */}
                         <input
                           type="text"
                           value={file.chapterTitle}
                           onChange={(e) => updateChapterTitle(file.id, e.target.value)}
                           className="w-full text-sm font-semibold bg-transparent outline-none border-b transition-all duration-150 pb-0.5 mb-1"
-                          style={{
-                            color: "#0a0a0f",
-                            borderColor: "transparent",
-                          }}
-                          onFocus={(e) => e.target.style.borderColor = "#d97706"}
-                          onBlur={(e) => e.target.style.borderColor = "transparent"}
+                          style={{ color: "#0a0a0f", borderColor: "transparent" }}
+                          onFocus={(e) => (e.target.style.borderColor = "#d97706")}
+                          onBlur={(e) => (e.target.style.borderColor = "transparent")}
                         />
                         <p className="text-xs" style={{ color: "rgba(10,10,15,0.4)" }}>
                           {file.name} · {formatBytes(file.size)}
                         </p>
-
-                        {/* Progress bar */}
                         {file.status === "uploading" && (
                           <div className="mt-2">
                             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(10,10,15,0.08)" }}>
@@ -483,27 +487,16 @@ export default function CreateNotebookPage() {
                           </div>
                         )}
                       </div>
-
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {file.status === "uploading" && (
-                          <Loader2 size={15} className="animate-spin" style={{ color: "#d97706" }} />
-                        )}
-                        {file.status === "done" && (
-                          <CheckCircle2 size={15} style={{ color: "#16a34a" }} />
-                        )}
-                        <button
-                          onClick={() => removeFile(file.id)}
-                          className="p-1.5 rounded-lg transition-all hover:scale-110"
-                          style={{ color: "rgba(10,10,15,0.35)" }}
-                        >
+                        {file.status === "uploading" && <Loader2 size={15} className="animate-spin" style={{ color: "#d97706" }} />}
+                        {file.status === "done" && <CheckCircle2 size={15} style={{ color: "#16a34a" }} />}
+                        <button onClick={() => removeFile(file.id)} className="p-1.5 rounded-lg transition-all hover:scale-110" style={{ color: "rgba(10,10,15,0.35)" }}>
                           <X size={13} />
                         </button>
                       </div>
                     </div>
                   </div>
                 ))}
-
-                {/* Add more */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-150 hover:scale-[1.01]"
@@ -511,6 +504,17 @@ export default function CreateNotebookPage() {
                 >
                   <Plus size={15} /> Add more documents
                 </button>
+              </div>
+            )}
+
+            {/* Error */}
+            {publishError && (
+              <div
+                className="flex items-center gap-3 rounded-xl px-4 py-3 mb-4"
+                style={{ background: "#fee2e2", border: "1px solid #fca5a5" }}
+              >
+                <p className="text-xs text-red-700 flex-1">{publishError}</p>
+                <button onClick={() => setPublishError(null)}><X size={13} className="text-red-400" /></button>
               </div>
             )}
 
@@ -530,19 +534,12 @@ export default function CreateNotebookPage() {
                 style={{ background: "#0a0a0f", color: "#f5f0e8" }}
               >
                 {saving ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" />
-                    Publishing & training AI…
-                  </>
+                  <><Loader2 size={15} className="animate-spin" /> Publishing…</>
                 ) : (
-                  <>
-                    <Sparkles size={15} />
-                    Publish Notebook & Train AI
-                  </>
+                  <><Sparkles size={15} /> Publish notebook</>
                 )}
               </button>
             </div>
-
             {!canPublish && files.length === 0 && (
               <p className="text-xs text-center mt-3" style={{ color: "rgba(10,10,15,0.35)" }}>
                 Upload at least one document to publish

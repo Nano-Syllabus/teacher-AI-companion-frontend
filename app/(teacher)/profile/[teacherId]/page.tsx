@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   BookOpen,
@@ -11,466 +12,890 @@ import {
   ChevronRight,
   Clock,
   FileText,
-  Sparkles,
   GraduationCap,
   Lock,
+  Unlock,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
-type Subject = "Mathematics" | "Physics" | "Computer Science";
+// ── Types mirrored from backend schemas ───────────────────────────────────────
 
-interface Notebook {
+type Difficulty = "Beginner" | "Intermediate" | "Advanced";
+
+interface TeacherProfile {
   id: string;
-  title: string;
-  description: string;
-  subject: Subject;
-  chapterCount: number;
-  pageCount: number;
-  lastUpdated: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  free: boolean;
+  name: string;
+  email: string;
+  picture: string | null;
+  notebook_count: number;
 }
 
-const SUBJECT_COLORS: Record<Subject, { bg: string; text: string; border: string }> = {
-  Mathematics: { bg: "#fef3c7", text: "#d97706", border: "#fcd34d" },
-  Physics: { bg: "#fee2e2", text: "#dc2626", border: "#fca5a5" },
-  "Computer Science": { bg: "#f0fdf4", text: "#16a34a", border: "#86efac" },
+interface NotebookSummary {
+  id: string;
+  teacher_id: string;
+  title: string;
+  subject: string;
+  description: string;
+  difficulty: Difficulty;
+  is_free: boolean;
+  published: boolean;
+  student_count: number;
+  views: number;
+  rating: number | null;
+  doc_count: number;
+  updated_at: string;
+  qr_code: string; 
+  qr_url: string;
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001//api/v1/";
+
+function getAuthHeader(): Record<string, string> {
+  // Token stored in localStorage as "access_token" from login response
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("access_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function apiFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { "Content-Type": "application/json", ...getAuthHeader() },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// ── Time formatter ─────────────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+// ── Initials avatar ────────────────────────────────────────────────────────
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+}
+
+// ── Difficulty badge ───────────────────────────────────────────────────────
+
+const DIFFICULTY_STYLE: Record<Difficulty, React.CSSProperties> = {
+  Beginner: {
+    background: "#fff",
+    color: "#000",
+    border: "1px solid #000",
+  },
+  Intermediate: {
+    background: "#000",
+    color: "#fff",
+    border: "1px solid #000",
+  },
+  Advanced: {
+    background: "#1a1a1a",
+    color: "#fff",
+    border: "1px solid #1a1a1a",
+  },
 };
 
-const DIFFICULTY_COLORS = {
-  Beginner: { bg: "#f0fdf4", text: "#16a34a" },
-  Intermediate: { bg: "#fef3c7", text: "#d97706" },
-  Advanced: { bg: "#fee2e2", text: "#dc2626" },
-};
+// ── Skeleton component ─────────────────────────────────────────────────────
 
-const NOTEBOOKS: Notebook[] = [
-  // Mathematics
-  {
-    id: "calc-1",
-    title: "Calculus I — Limits & Derivatives",
-    description: "Foundations of differential calculus with 120+ solved problems and visual explanations.",
-    subject: "Mathematics",
-    chapterCount: 8,
-    pageCount: 94,
-    lastUpdated: "2 days ago",
-    difficulty: "Beginner",
-    free: true,
-  },
-  {
-    id: "calc-2",
-    title: "Calculus II — Integration",
-    description: "Definite and indefinite integrals, techniques of integration, and applications.",
-    subject: "Mathematics",
-    chapterCount: 10,
-    pageCount: 118,
-    lastUpdated: "1 week ago",
-    difficulty: "Intermediate",
-    free: false,
-  },
-  {
-    id: "linalg",
-    title: "Linear Algebra",
-    description: "Vectors, matrices, eigenvalues, and transformations. Essential for ML and engineering.",
-    subject: "Mathematics",
-    chapterCount: 12,
-    pageCount: 142,
-    lastUpdated: "3 weeks ago",
-    difficulty: "Intermediate",
-    free: false,
-  },
-  {
-    id: "stats",
-    title: "Probability & Statistics",
-    description: "From basic probability to hypothesis testing and regression analysis.",
-    subject: "Mathematics",
-    chapterCount: 9,
-    pageCount: 105,
-    lastUpdated: "1 month ago",
-    difficulty: "Advanced",
-    free: false,
-  },
-  // Physics
-  {
-    id: "mech",
-    title: "Classical Mechanics",
-    description: "Newton's laws, kinematics, dynamics, work-energy theorem with numerical examples.",
-    subject: "Physics",
-    chapterCount: 11,
-    pageCount: 130,
-    lastUpdated: "5 days ago",
-    difficulty: "Beginner",
-    free: true,
-  },
-  {
-    id: "thermo",
-    title: "Thermodynamics",
-    description: "Laws of thermodynamics, heat engines, entropy — with real-world applications.",
-    subject: "Physics",
-    chapterCount: 7,
-    pageCount: 88,
-    lastUpdated: "2 weeks ago",
-    difficulty: "Intermediate",
-    free: false,
-  },
-  {
-    id: "waves",
-    title: "Waves & Optics",
-    description: "Wave mechanics, superposition, interference, diffraction, and geometric optics.",
-    subject: "Physics",
-    chapterCount: 6,
-    pageCount: 76,
-    lastUpdated: "1 month ago",
-    difficulty: "Intermediate",
-    free: false,
-  },
-  // Computer Science
-  {
-    id: "dsa",
-    title: "Data Structures & Algorithms",
-    description: "Arrays, linked lists, trees, graphs, sorting, searching with Python/Java code.",
-    subject: "Computer Science",
-    chapterCount: 14,
-    pageCount: 168,
-    lastUpdated: "3 days ago",
-    difficulty: "Intermediate",
-    free: true,
-  },
-  {
-    id: "discrete",
-    title: "Discrete Mathematics",
-    description: "Logic, sets, relations, graph theory, and combinatorics for CS students.",
-    subject: "Computer Science",
-    chapterCount: 10,
-    pageCount: 122,
-    lastUpdated: "2 weeks ago",
-    difficulty: "Intermediate",
-    free: false,
-  },
-];
-
-function NotebookCard({ notebook, teacherId }: { notebook: Notebook; teacherId: string }) {
-  const colors = SUBJECT_COLORS[notebook.subject];
-  const diff = DIFFICULTY_COLORS[notebook.difficulty];
-
+function Skeleton({ width, height, style }: { width?: string; height?: string; style?: React.CSSProperties }) {
   return (
-    <Link href={`/student/teachers/${teacherId}/chat?notebook=${notebook.id}`} className="block group">
     <div
-      className="relative rounded-2xl p-5 transition-all duration-300 hover:scale-[1.01] hover:-translate-y-0.5 cursor-pointer group h-full"
       style={{
-        background: notebook.free ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.65)",
-        border: "1.5px solid rgba(10,10,15,0.1)",
+        width: width ?? "100%",
+        height: height ?? "1em",
+        borderRadius: 4,
+        background: "rgba(0,0,0,0.08)",
+        animation: "pulse 1.4s ease-in-out infinite",
+        ...style,
       }}
+    />
+  );
+}
+
+// ── NotebookCard ───────────────────────────────────────────────────────────
+
+function NotebookCard({
+  notebook,
+  teacherId,
+}: {
+  notebook: NotebookSummary;
+  teacherId: string;
+}) {
+  return (
+    <Link
+      href={`/student/teachers/${teacherId}/chat?notebook=${notebook.id}`}
+      className="block group"
+      style={{ textDecoration: "none" }}
     >
-      {!notebook.free && (
-        <div
-          className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: "rgba(10,10,15,0.06)" }}
-        >
-          <Lock size={13} style={{ color: "rgba(10,10,15,0.35)" }} />
-        </div>
-      )}
-
-      {notebook.free && (
-        <div
-          className="absolute top-4 right-4 px-2 py-0.5 rounded-lg text-xs font-semibold"
-          style={{ background: "#d97706", color: "#fff" }}
-        >
-          Free
-        </div>
-      )}
-
-      {/* Title */}
-      <div className="flex items-start gap-3 mb-3 pr-12">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-          style={{ background: colors.bg }}
-        >
-          <FileText size={16} style={{ color: colors.text }} />
-        </div>
-        <div>
-          <p className="font-bold text-sm leading-snug" style={{ color: "#0a0a0f" }}>
-            {notebook.title}
-          </p>
-          <p className="text-xs mt-1 leading-relaxed line-clamp-2" style={{ color: "rgba(10,10,15,0.5)" }}>
-            {notebook.description}
-          </p>
-        </div>
-      </div>
-
-      {/* Tags */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <span
-          className="text-xs px-2 py-0.5 rounded-md font-medium"
-          style={{ background: diff.bg, color: diff.text }}
-        >
-          {notebook.difficulty}
-        </span>
-      </div>
-
-      {/* Meta */}
       <div
-        className="flex items-center gap-4 pt-3"
-        style={{ borderTop: "1px solid rgba(10,10,15,0.07)" }}
+        style={{
+          position: "relative",
+          borderRadius: 12,
+          padding: "1.1rem 1.25rem",
+          border: "1px solid",
+          borderColor: notebook.is_free ? "#000" : "rgba(0,0,0,0.18)",
+          background: notebook.is_free ? "#000" : "#fff",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.75rem",
+          transition: "transform 0.15s ease, box-shadow 0.15s ease",
+          height: "100%",
+          boxSizing: "border-box",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 6px 24px rgba(0,0,0,0.12)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.transform = "";
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "";
+        }}
       >
-        <div className="flex items-center gap-1">
-          <BookOpen size={12} style={{ color: "rgba(10,10,15,0.35)" }} />
-          <span className="text-xs" style={{ color: "rgba(10,10,15,0.45)" }}>
-            {notebook.chapterCount} chapters
-          </span>
+        {/* Lock / Free badge */}
+        <div style={{ position: "absolute", top: "0.9rem", right: "1rem" }}>
+          {notebook.is_free ? (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                background: "#fff",
+                color: "#000",
+                padding: "2px 7px",
+                borderRadius: 4,
+              }}
+            >
+              Free
+            </span>
+          ) : (
+            <Lock size={13} style={{ color: "rgba(0,0,0,0.3)" }} />
+          )}
         </div>
-        <div className="flex items-center gap-1">
-          <FileText size={12} style={{ color: "rgba(10,10,15,0.35)" }} />
-          <span className="text-xs" style={{ color: "rgba(10,10,15,0.45)" }}>
-            {notebook.pageCount} pages
-          </span>
-        </div>
-        <div className="flex items-center gap-1 ml-auto">
-          <Clock size={12} style={{ color: "rgba(10,10,15,0.3)" }} />
-          <span className="text-xs" style={{ color: "rgba(10,10,15,0.35)" }}>
-            {notebook.lastUpdated}
-          </span>
-        </div>
-      </div>
 
-      {/* Hover CTA */}
-      <div
-        className="mt-3 flex items-center gap-1 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-        style={{ color: "#d97706" }}
-      >
-        {notebook.free ? "Open notebook" : "Unlock notebook"}
-        <ChevronRight size={13} />
+        {/* Icon + title */}
+        <div style={{ display: "flex", gap: 12, paddingRight: 32 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              background: notebook.is_free ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.05)",
+            }}
+          >
+            <FileText
+              size={15}
+              style={{ color: notebook.is_free ? "#fff" : "#000" }}
+            />
+          </div>
+          <div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 13,
+                fontWeight: 600,
+                lineHeight: 1.35,
+                color: notebook.is_free ? "#fff" : "#000",
+              }}
+            >
+              {notebook.title}
+            </p>
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: 12,
+                lineHeight: 1.5,
+                color: notebook.is_free ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)",
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {notebook.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 500,
+              padding: "2px 8px",
+              borderRadius: 4,
+              ...DIFFICULTY_STYLE[notebook.difficulty],
+              ...(notebook.is_free && notebook.difficulty === "Beginner"
+                ? { background: "#fff", color: "#000" }
+                : notebook.is_free
+                ? { background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)" }
+                : {}),
+            }}
+          >
+            {notebook.difficulty}
+          </span>
+          {notebook.subject && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 400,
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: notebook.is_free ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+                color: notebook.is_free ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)",
+              }}
+            >
+              {notebook.subject}
+            </span>
+          )}
+        </div>
+
+        {/* Meta row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            paddingTop: "0.6rem",
+            borderTop: `1px solid ${notebook.is_free ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.07)"}`,
+          }}
+        >
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              color: notebook.is_free ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+            }}
+          >
+            <BookOpen size={11} />
+            {notebook.doc_count} docs
+          </span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              color: notebook.is_free ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+            }}
+          >
+            <Users size={11} />
+            {notebook.student_count}
+          </span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11,
+              color: notebook.is_free ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)",
+              marginLeft: "auto",
+            }}
+          >
+            <Clock size={11} />
+            {timeAgo(notebook.updated_at)}
+          </span>
+        </div>
+
+        {/* Hover CTA */}
+        <div
+          className="notebook-cta"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            fontSize: 11,
+            fontWeight: 600,
+            color: notebook.is_free ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.4)",
+            opacity: 0,
+            transition: "opacity 0.15s ease",
+          }}
+        >
+          {notebook.is_free ? "Open notebook" : "Unlock notebook"}
+          <ChevronRight size={12} />
+        </div>
       </div>
-    </div>
     </Link>
   );
 }
 
-export default function TeacherProfilePage() {
-  const [activeSubject, setActiveSubject] = useState<Subject | "All">("All");
+// ── Error state ──────────────────────────────────────────────────────────────
 
-  const subjects = Array.from(new Set(NOTEBOOKS.map((n) => n.subject))) as Subject[];
-
-  const filtered = activeSubject === "All"
-    ? NOTEBOOKS
-    : NOTEBOOKS.filter((n) => n.subject === activeSubject);
-
-  const groupedBySubject = subjects.reduce<Record<Subject, Notebook[]>>((acc, sub) => {
-    acc[sub] = filtered.filter((n) => n.subject === sub);
-    return acc;
-  }, {} as Record<Subject, Notebook[]>);
-
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="min-h-screen" style={{ background: "#f5f0e8" }}>
-
-      {/* Top nav */}
-      <div
-        className="sticky top-0 z-20 px-6 py-4"
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "60vh",
+        gap: 12,
+        textAlign: "center",
+        padding: "2rem",
+      }}
+    >
+      <AlertCircle size={32} style={{ color: "rgba(0,0,0,0.25)" }} />
+      <p style={{ margin: 0, fontSize: 14, color: "rgba(0,0,0,0.5)" }}>{message}</p>
+      <button
+        onClick={onRetry}
         style={{
-          background: "rgba(245,240,232,0.85)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(10,10,15,0.08)",
+          marginTop: 8,
+          padding: "8px 20px",
+          fontSize: 13,
+          fontWeight: 500,
+          background: "#000",
+          color: "#fff",
+          border: "none",
+          borderRadius: 8,
+          cursor: "pointer",
         }}
       >
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <Link
-            href="/teachers"
-            className="flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-60"
-            style={{ color: "rgba(10,10,15,0.6)" }}
-          >
-            <ArrowLeft size={16} />
-            All Teachers
-          </Link>
-          <div className="flex items-center gap-2">
-            <GraduationCap size={18} style={{ color: "#d97706" }} />
-            <span className="font-bold text-sm" style={{ color: "#0a0a0f" }}>TeacherOS</span>
-          </div>
-        </div>
-      </div>
+        Try again
+      </button>
+    </div>
+  );
+}
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
+// ── Main Page ──────────────────────────────────────────────────────────────
 
-        {/* Profile header */}
+export default function TeacherProfilePage() {
+  const params = useParams<{ teacherId: string }>();
+  const teacherId = params?.teacherId ?? "";
+
+  const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
+  const [notebooks, setNotebooks] = useState<NotebookSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeSubject, setActiveSubject] = useState<string>("All");
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [prof, nbs] = await Promise.all([
+        apiFetch<TeacherProfile>(`/student/teachers/${teacherId}`),
+        apiFetch<NotebookSummary[]>(`/student/teachers/${teacherId}/notebooks`),
+      ]);
+      setTeacher(prof);
+      setNotebooks(nbs);
+    } catch (e) {
+      setError((e as Error).message ?? "Failed to load teacher profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (teacherId) load();
+  }, [teacherId]);
+
+  // Derived
+  const subjects = Array.from(new Set(notebooks.map((n) => n.subject))).sort();
+  const filtered =
+    activeSubject === "All"
+      ? notebooks
+      : notebooks.filter((n) => n.subject === activeSubject);
+
+  const groupedBySubject = subjects.reduce<Record<string, NotebookSummary[]>>(
+    (acc, sub) => {
+      acc[sub] = filtered.filter((n) => n.subject === sub);
+      return acc;
+    },
+    {}
+  );
+
+  const totalStudents = notebooks.reduce((s, n) => s + n.student_count, 0);
+  const avgRating =
+    notebooks.filter((n) => n.rating !== null).length > 0
+      ? notebooks
+          .filter((n) => n.rating !== null)
+          .reduce((s, n) => s + (n.rating ?? 0), 0) /
+        notebooks.filter((n) => n.rating !== null).length
+      : null;
+
+  if (error) return <ErrorState message={error} onRetry={load} />;
+
+  return (
+    <>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .notebook-card:hover .notebook-cta { opacity: 1 !important; }
+        a { text-decoration: none; }
+      `}</style>
+
+      <div style={{ minHeight: "100vh", background: "#f7f7f5" }}>
+
+        {/* ── Sticky nav ── */}
         <div
-          className="rounded-3xl p-8 mb-8"
           style={{
-            background: "rgba(255,255,255,0.75)",
-            border: "1.5px solid rgba(10,10,15,0.1)",
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
+            padding: "0.85rem 1.5rem",
+            background: "rgba(247,247,245,0.88)",
+            backdropFilter: "blur(12px)",
+            borderBottom: "1px solid rgba(0,0,0,0.08)",
           }}
         >
-          <div className="flex items-start gap-6">
-            {/* Avatar */}
-            <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
-              style={{ background: "#d97706", color: "#fff" }}
-            >
-              AS
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h1 className="font-bold text-2xl" style={{ color: "#0a0a0f" }}>
-                      Dr. Anita Sharma
-                    </h1>
-                    <Sparkles size={16} style={{ color: "#d97706" }} />
-                  </div>
-                  <p className="text-sm mb-0.5" style={{ color: "rgba(10,10,15,0.55)" }}>
-                    Professor of Mathematics
-                  </p>
-                  <p className="text-sm" style={{ color: "rgba(10,10,15,0.4)" }}>
-                    Tribhuvan University, Kathmandu
-                  </p>
-                </div>
-
-                {/* Chat CTA */}
-                <button
-                  className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 flex-shrink-0"
-                  style={{ background: "#0a0a0f", color: "#f5f0e8" }}
-                >
-                  <MessageSquare size={15} />
-                  Chat with AI Clone
-                </button>
-              </div>
-
-              {/* Stats row */}
-              <div className="flex items-center gap-6 mt-5 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <Star size={14} fill="#d97706" style={{ color: "#d97706" }} />
-                  <span className="text-sm font-bold" style={{ color: "#0a0a0f" }}>4.9</span>
-                  <span className="text-sm" style={{ color: "rgba(10,10,15,0.4)" }}>(128 reviews)</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Users size={14} style={{ color: "rgba(10,10,15,0.4)" }} />
-                  <span className="text-sm" style={{ color: "rgba(10,10,15,0.6)" }}>340 students</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <BookOpen size={14} style={{ color: "rgba(10,10,15,0.4)" }} />
-                  <span className="text-sm" style={{ color: "rgba(10,10,15,0.6)" }}>{NOTEBOOKS.length} notebooks</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Clock size={14} style={{ color: "rgba(10,10,15,0.4)" }} />
-                  <span className="text-sm" style={{ color: "rgba(10,10,15,0.6)" }}>15 years teaching</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bio */}
           <div
-            className="mt-6 pt-6"
-            style={{ borderTop: "1px solid rgba(10,10,15,0.08)" }}
+            style={{
+              maxWidth: 860,
+              margin: "0 auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
           >
-            <p className="text-sm leading-relaxed" style={{ color: "rgba(10,10,15,0.6)" }}>
-              15 years of teaching calculus, linear algebra, probability, and applied mathematics at Tribhuvan University.
-              Known for making complex concepts approachable through visual problem-solving and step-by-step breakdowns.
-              Every notebook is built from years of classroom-tested material — the same notes that helped hundreds of students
-              ace their board exams.
-            </p>
-          </div>
-
-          {/* Subject tags */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            {subjects.map((s) => (
-              <span
-                key={s}
-                className="text-xs px-3 py-1.5 rounded-xl font-medium"
-                style={{
-                  background: SUBJECT_COLORS[s].bg,
-                  color: SUBJECT_COLORS[s].text,
-                  border: `1px solid ${SUBJECT_COLORS[s].border}`,
-                }}
-              >
-                {s}
+            <Link
+              href="/student/teachers"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+                fontWeight: 500,
+                color: "rgba(0,0,0,0.5)",
+                textDecoration: "none",
+              }}
+            >
+              <ArrowLeft size={15} />
+              All Teachers
+            </Link>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <GraduationCap size={16} style={{ color: "#000" }} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: "#000" }}>
+                NanoSyllabus
               </span>
-            ))}
+            </div>
           </div>
         </div>
 
-        {/* Notebooks section */}
-        <div>
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-            <h2 className="font-bold text-xl" style={{ color: "#0a0a0f" }}>
-              Notebooks
-            </h2>
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "2.5rem 1.5rem 4rem" }}>
 
-            {/* Subject filter tabs */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setActiveSubject("All")}
-                className="px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200"
-                style={{
-                  background: activeSubject === "All" ? "#0a0a0f" : "rgba(10,10,15,0.07)",
-                  color: activeSubject === "All" ? "#f5f0e8" : "rgba(10,10,15,0.55)",
-                }}
-              >
-                All ({NOTEBOOKS.length})
-              </button>
-              {subjects.map((s) => {
-                const c = SUBJECT_COLORS[s];
-                const count = NOTEBOOKS.filter((n) => n.subject === s).length;
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setActiveSubject(s)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200"
-                    style={{
-                      background: activeSubject === s ? c.text : c.bg,
-                      color: activeSubject === s ? "#fff" : c.text,
-                      border: `1.5px solid ${c.border}`,
-                    }}
-                  >
-                    {s} ({count})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* ── Profile header ── */}
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              border: "1px solid rgba(0,0,0,0.1)",
+              padding: "2rem",
+              marginBottom: "2rem",
+            }}
+          >
+            {loading ? (
+              <div style={{ display: "flex", gap: 20 }}>
+                <Skeleton width="72px" height="72px" style={{ borderRadius: 12, flexShrink: 0 }} />
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <Skeleton width="180px" height="22px" />
+                  <Skeleton width="140px" height="14px" />
+                  <Skeleton width="100px" height="14px" />
+                </div>
+              </div>
+            ) : teacher ? (
+              <>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+                  {/* Avatar */}
+                  {teacher.picture ? (
+                    <img
+                      src={teacher.picture}
+                      alt={teacher.name}
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: 12,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                        border: "1px solid rgba(0,0,0,0.1)",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: 12,
+                        background: "#000",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 22,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        letterSpacing: "-0.5px",
+                      }}
+                    >
+                      {initials(teacher.name)}
+                    </div>
+                  )}
 
-          {/* Grouped by subject */}
-          {activeSubject === "All" ? (
-            <div className="space-y-10">
-              {subjects.map((sub) => {
-                const books = groupedBySubject[sub];
-                if (!books || books.length === 0) return null;
-                const c = SUBJECT_COLORS[sub];
-                return (
-                  <div key={sub}>
-                    {/* Subject heading */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ background: c.bg }}
-                      >
-                        <BookOpen size={15} style={{ color: c.text }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div>
+                        <h1
+                          style={{
+                            margin: 0,
+                            fontSize: 22,
+                            fontWeight: 700,
+                            color: "#000",
+                            letterSpacing: "-0.4px",
+                          }}
+                        >
+                          {teacher.name}
+                        </h1>
+                        <p style={{ margin: "4px 0 0", fontSize: 13, color: "rgba(0,0,0,0.45)" }}>
+                          {teacher.email}
+                        </p>
                       </div>
-                      <h3 className="font-bold text-base" style={{ color: "#0a0a0f" }}>
-                        {sub}
-                      </h3>
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-md font-medium ml-1"
-                        style={{ background: c.bg, color: c.text }}
+
+                      {/* Chat CTA */}
+                      <Link
+                        href={`/student/teachers/${teacherId}/chat`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 7,
+                          padding: "9px 18px",
+                          background: "#000",
+                          color: "#fff",
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          textDecoration: "none",
+                          flexShrink: 0,
+                          whiteSpace: "nowrap",
+                        }}
                       >
-                        {books.length} notebooks
+                        <MessageSquare size={14} />
+                        Chat with AI
+                      </Link>
+                    </div>
+
+                    {/* Stats */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 20,
+                        marginTop: 16,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {avgRating !== null && (
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                            fontSize: 13,
+                            color: "#000",
+                          }}
+                        >
+                          <Star size={13} fill="#000" />
+                          <strong>{avgRating.toFixed(1)}</strong>
+                          <span style={{ color: "rgba(0,0,0,0.4)" }}>avg rating</span>
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          fontSize: 13,
+                          color: "rgba(0,0,0,0.55)",
+                        }}
+                      >
+                        <Users size={13} />
+                        {totalStudents.toLocaleString()} students
+                      </span>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          fontSize: 13,
+                          color: "rgba(0,0,0,0.55)",
+                        }}
+                      >
+                        <BookOpen size={13} />
+                        {teacher.notebook_count} notebooks
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {books.map((nb) => (
-                        <NotebookCard key={nb.id} notebook={nb} teacherId="prof-sharma" />
-                      ))}
-                    </div>
                   </div>
-                );
-              })}
+                </div>
+
+                {/* Subject tags */}
+                {subjects.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginTop: "1.5rem",
+                      paddingTop: "1.25rem",
+                      borderTop: "1px solid rgba(0,0,0,0.07)",
+                    }}
+                  >
+                    {subjects.map((s) => (
+                      <span
+                        key={s}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 500,
+                          padding: "4px 12px",
+                          borderRadius: 20,
+                          background: "rgba(0,0,0,0.05)",
+                          color: "rgba(0,0,0,0.6)",
+                          border: "1px solid rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+
+          {/* ── Notebooks section ── */}
+          <div>
+            {/* Header + filter */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "1.25rem",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#000",
+                  letterSpacing: "-0.3px",
+                }}
+              >
+                Notebooks
+                {!loading && (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      fontSize: 13,
+                      fontWeight: 400,
+                      color: "rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    {filtered.length}
+                  </span>
+                )}
+              </h2>
+
+              {/* Subject filter pills */}
+              {!loading && subjects.length > 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  {["All", ...subjects].map((s) => {
+                    const active = activeSubject === s;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setActiveSubject(s)}
+                        style={{
+                          padding: "5px 14px",
+                          borderRadius: 20,
+                          fontSize: 12,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          border: "1px solid",
+                          borderColor: active ? "#000" : "rgba(0,0,0,0.15)",
+                          background: active ? "#000" : "#fff",
+                          color: active ? "#fff" : "rgba(0,0,0,0.55)",
+                          transition: "all 0.12s ease",
+                        }}
+                      >
+                        {s}
+                        {s !== "All" && (
+                          <span
+                            style={{
+                              marginLeft: 5,
+                              opacity: 0.5,
+                            }}
+                          >
+                            {notebooks.filter((n) => n.subject === s).length}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filtered.map((nb) => (
-                <NotebookCard key={nb.id} notebook={nb} teacherId="prof-sharma" />
-              ))}
-            </div>
-          )}
+
+            {/* Loading skeletons */}
+            {loading && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                  gap: 16,
+                }}
+              >
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: "#fff",
+                      borderRadius: 12,
+                      border: "1px solid rgba(0,0,0,0.08)",
+                      padding: "1.1rem 1.25rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <Skeleton width="34px" height="34px" style={{ borderRadius: 8 }} />
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <Skeleton height="14px" />
+                        <Skeleton height="12px" width="80%" />
+                      </div>
+                    </div>
+                    <Skeleton height="12px" width="50%" />
+                    <Skeleton height="12px" width="70%" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && filtered.length === 0 && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "4rem 2rem",
+                  color: "rgba(0,0,0,0.3)",
+                  fontSize: 14,
+                }}
+              >
+                <BookOpen size={32} style={{ opacity: 0.2, marginBottom: 12 }} />
+                <p style={{ margin: 0 }}>No published notebooks yet.</p>
+              </div>
+            )}
+
+            {/* Grouped by subject (All view) */}
+            {!loading && filtered.length > 0 && activeSubject === "All" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
+                {subjects.map((sub) => {
+                  const books = groupedBySubject[sub];
+                  if (!books || books.length === 0) return null;
+                  return (
+                    <div key={sub}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "rgba(0,0,0,0.35)",
+                          }}
+                        >
+                          {sub}
+                        </span>
+                        <div
+                          style={{ flex: 1, height: 1, background: "rgba(0,0,0,0.08)" }}
+                        />
+                        <span style={{ fontSize: 11, color: "rgba(0,0,0,0.3)" }}>
+                          {books.length}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                          gap: 14,
+                        }}
+                      >
+                        {books.map((nb) => (
+                          <NotebookCard key={nb.id} notebook={nb} teacherId={teacherId} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Flat grid (filtered view) */}
+            {!loading && filtered.length > 0 && activeSubject !== "All" && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                  gap: 14,
+                }}
+              >
+                {filtered.map((nb) => (
+                  <NotebookCard key={nb.id} notebook={nb} teacherId={teacherId} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
