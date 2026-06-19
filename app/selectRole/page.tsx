@@ -336,14 +336,36 @@ export default function SelectRolePage() {
   const [confirmedRole, setConfirmedRole] = useState<Role | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("role") as Role | null;
-    if (stored === "teacher" || stored === "student") {
-      setConfirmedRole(stored);
-      setPageState("ready");
-    } else {
+  const fetchUserRole = async () => {
+    try {
+      const session = await getSession();
+
+      if (!session?.backendAccessToken) {
+        setPageState("select");
+        return;
+      }
+
+      const user = await apiFetch<{
+        id: string;
+        role: Role;
+      }>("/users/me", session.backendAccessToken);
+
+      if (user?.role === "teacher" || user?.role === "student") {
+        setConfirmedRole(user.role);
+        setPageState("ready");
+      } else {
+        setPageState("select");
+      }
+
+      
+    } catch (err) {
+      console.error("Failed to fetch user role:", err);
       setPageState("select");
     }
-  }, []);
+  };
+
+  fetchUserRole();
+}, []);
 
   const handleRoleSet = (role: Role) => {
     setConfirmedRole(role);

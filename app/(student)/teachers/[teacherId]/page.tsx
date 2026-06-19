@@ -196,10 +196,10 @@ export default function TeacherProfilePage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#f5f0e8" }}>
+    <div className="min-h-screen bg-white" >
       <div
         className="sticky top-0 z-20 px-6 py-4"
-        style={{ background: "rgba(245,240,232,0.85)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(10,10,15,0.08)" }}
+        
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <Link
@@ -245,14 +245,14 @@ export default function TeacherProfilePage() {
                     {teacher.email}
                   </p>
                 </div>
-                <Link
+                {/* <Link
                   href={`/teachers/${teacherId}/chat`}
                   className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 flex-shrink-0"
                   style={{ background: "#0a0a0f", color: "#f5f0e8" }}
                 >
                   <MessageSquare size={15} />
                   Chat with AI
-                </Link>
+                </Link> */}
               </div>
 
               <div className="flex items-center gap-6 mt-5 flex-wrap">

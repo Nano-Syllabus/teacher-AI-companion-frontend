@@ -46,7 +46,7 @@ export default function NotebookRow({
       setDeleting(false);
     }
   }
-  console.log(notebook)
+ 
   return (
     <div className="flex items-center gap-3 p-4 rounded-xl border border-black/[0.07] bg-white hover:bg-black/[0.015] transition-colors">
       <div className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center flex-shrink-0">

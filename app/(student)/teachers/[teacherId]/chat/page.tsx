@@ -315,11 +315,11 @@ export default function NotebookChatPage() {
   const teacherName = teacher?.name ?? "Teacher";
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: "#f5f0e8" }}>
+    <div className="flex flex-col h-screen bg-white" >
 
       {/* ── Top bar ── */}
       <div className="flex-shrink-0 px-5 py-3 flex items-center gap-3"
-        style={{ background: "rgba(245,240,232,0.9)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(10,10,15,0.08)" }}>
+        >
 
         <Link href={`/teachers/${teacherId}`}
           className="flex items-center gap-1.5 text-xs font-medium hover:opacity-60 flex-shrink-0"
@@ -387,7 +387,7 @@ export default function NotebookChatPage() {
         </div>
 
         {/* Right actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={handleReset}
             className="p-2 rounded-lg"
             style={{ background: "rgba(10,10,15,0.07)", color: "rgba(10,10,15,0.5)" }}
@@ -398,7 +398,7 @@ export default function NotebookChatPage() {
             style={{ background: style.bg, color: style.text }}>
             <Sparkles size={11} /> AI Clone
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* ── Messages ── */}
