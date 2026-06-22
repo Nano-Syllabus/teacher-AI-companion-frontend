@@ -18,7 +18,7 @@ export default function DownloadPage() {
       try {
         // 1. Fetch notebook metadata to show title
         const metaRes = await fetch(
-          `${ "http://localhost:8001"}/api/v1/public/notebooks/${notebookId}/meta`
+          `${ process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8001"}/api/v1/public/notebooks/${notebookId}/meta`
         );
         if (metaRes.ok) {
           const meta = await metaRes.json();
@@ -29,7 +29,7 @@ export default function DownloadPage() {
         // 2. Trigger the PDF download
         setStatus("downloading");
         const dlRes = await fetch(
-          `${"http://localhost:8001"}/api/v1/public/notebooks/${notebookId}/download`
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8001/"}api/v1/public/notebooks/${notebookId}/download`
         );
 
         if (!dlRes.ok) {

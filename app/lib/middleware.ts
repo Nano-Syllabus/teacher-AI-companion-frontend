@@ -7,7 +7,7 @@ const ROLE_REDIRECTS: Record<string, string> = {
 };
 
 // Routes that should only be accessible when NOT signed in
-const AUTH_ROUTES = ["/login", "/register"];
+const AUTH_ROUTES = ["/auth", "/register"];
 
 export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -27,7 +27,7 @@ export async function middleware(req: NextRequest) {
 
   // If NOT signed in and hitting a protected route → send to login
   if (!token && !AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/auth", req.url));
   }
 
   return NextResponse.next();

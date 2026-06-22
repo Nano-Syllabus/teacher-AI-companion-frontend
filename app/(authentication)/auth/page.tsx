@@ -542,7 +542,7 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
           Create your account
         </h1>
         <p style={{ fontSize: "14px", color: "#737373", fontFamily: "Inter, sans-serif", margin: 0 }}>
-          Join ShikshaHub and start learning
+          Join AI tutor companion and start learning
         </p>
       </div>
 
@@ -706,7 +706,7 @@ function LeftPanel() {
   return (
     <div style={{ backgroundColor: "#0a0a0a", display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative" }}>
       <div style={{ position: "absolute", top: "32px", left: "32px" }}>
-        <span style={{ color: "#ffffff", fontWeight: 700, fontSize: "20px", fontFamily: "Inter, sans-serif" }}>ShikshaHub</span>
+        <span style={{ color: "#ffffff", fontWeight: 700, fontSize: "20px", fontFamily: "Inter, sans-serif" }}>Tutor AI Companion</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "48px 40px" }}>
         <div style={{ maxWidth: "420px" }}>
@@ -776,7 +776,7 @@ function MobileLayout({ page, onSwitch }: { page: Page; onSwitch: () => void }) 
     <div style={{ minHeight: "100vh", backgroundColor: "#ffffff", fontFamily: "Inter, sans-serif" }}>
       <div style={{ padding: "24px 24px 0", borderBottom: "1px solid #e5e5e5" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-          <span style={{ fontSize: "18px", fontWeight: 700, color: "#0a0a0a", fontFamily: "Inter, sans-serif" }}>ShikshaHub</span>
+          <span style={{ fontSize: "18px", fontWeight: 700, color: "#0a0a0a", fontFamily: "Inter, sans-serif" }}>AI tutor companion</span>
         </div>
         <PageToggle page={page} onSwitch={onSwitch} />
       </div>

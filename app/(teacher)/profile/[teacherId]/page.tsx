@@ -51,7 +51,7 @@ interface NotebookSummary {
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001//api/v1/";
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8001";
 
 function getAuthHeader(): Record<string, string> {
   // Token stored in localStorage as "access_token" from login response
@@ -404,8 +404,8 @@ export default function TeacherProfilePage() {
     setError(null);
     try {
       const [prof, nbs] = await Promise.all([
-        apiFetch<TeacherProfile>(`/student/teachers/${teacherId}`),
-        apiFetch<NotebookSummary[]>(`/student/teachers/${teacherId}/notebooks`),
+        apiFetch<TeacherProfile>(`api/v1/student/teachers/${teacherId}`),
+        apiFetch<NotebookSummary[]>(`api/v1/student/teachers/${teacherId}/notebooks`),
       ]);
       setTeacher(prof);
       setNotebooks(nbs);

@@ -9,6 +9,7 @@ import {
   BookText, Languages, Monitor, BarChart2, TrendingUp,
   Sparkles, Brain, Zap, Shield,
 } from "lucide-react";
+import Link from "next/link";
 
 /* ─── constants ─── */
 const NAV_LINKS = [
@@ -228,7 +229,7 @@ export default function Page() {
           borderBottom: "1px solid #e5e5e5" }}
       >
         <a href="#" style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 18, letterSpacing: "-0.03em", color: "#000", textDecoration: "none" }}>
-          Tutor AI Companion
+          AI Tutor Companion
         </a>
         <nav style={{ display: "flex", gap: 32 }}>
           {NAV_LINKS.map((l) => (
@@ -238,7 +239,7 @@ export default function Page() {
           ))}
         </nav>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <a href="#" className="mag" style={{ padding: "8px 20px", fontSize: 13, fontWeight: 500, color: "#000", border: "1px solid #e5e5e5", borderRadius: 8, textDecoration: "none", display: "inline-block" }}>Sign in</a>
+          <a href="/auth" className="mag" style={{ padding: "8px 20px", fontSize: 13, fontWeight: 500, color: "#000", border: "1px solid #e5e5e5", borderRadius: 8, textDecoration: "none", display: "inline-block" }}>Sign in</a>
           <a href="#" className="mag" style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, color: "#fff", background: "#000", borderRadius: 8, textDecoration: "none", display: "inline-block" }}>Get access</a>
         </div>
       </header>
@@ -632,19 +633,70 @@ export default function Page() {
             <p style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 19, fontWeight: 700, color: "#fff", letterSpacing: "-0.03em", marginBottom: 10 }}>Tutor AI Companion</p>
             <p style={{ fontSize: 14, color: "#525252", lineHeight: 1.65 }}>Nepal's AI-powered NEB learning platform — connecting students with Grade 11 &amp; 12 teachers.</p>
           </div>
-          {[["Navigate",[["Home","#"],["How it works","#how"],["Subjects","#subjects"],["AI Tutor","#ai"]]],
-            ["Account",[["Sign in","#"],["Get access","#"],["Join as teacher","#"]]]].map(([title, links]) => (
-            <div key={title as string}>
-              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#525252", marginBottom: 18 }}>{title as string}</p>
-              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 11 }}>
-                {(links as [string,string][]).map(([l,h]) => (
-                  <li key={l}><a href={h} style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", textDecoration: "none" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}>{l}</a></li>
-                ))}
-              </ul>
-            </div>
-          ))}
+         {[
+  [
+    "Navigate",
+    [
+      ["Home", "#"],
+      ["How it works", "#how"],
+      ["Subjects", "#subjects"],
+      ["AI Tutor", "#ai"],
+    ],
+  ],
+  [
+    "Account",
+    [
+      ["Sign in", "/auth"],
+      ["Get access", "#"],
+      ["Join as teacher", "#"],
+    ],
+  ],
+].map(([title, links]) => (
+  <div key={title as string}>
+    <p
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        color: "#525252",
+        marginBottom: 18,
+      }}
+    >
+      {title as string}
+    </p>
+
+    <ul
+      style={{
+        listStyle: "none",
+        display: "flex",
+        flexDirection: "column",
+        gap: 11,
+      }}
+    >
+      {(links as [string, string][]).map(([label, href]) => (
+        <li key={label}>
+          <Link
+            href={href}
+            style={{
+              fontSize: 14,
+              color: "rgba(255,255,255,0.45)",
+              textDecoration: "none",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+            }}
+          >
+            {label}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+))}
         </div>
         <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", justifyContent: "space-between", paddingTop: 24 }}>
           <p style={{ fontSize: 12, color: "#525252" }}>© 2025 Tutor AI Companion · Nepal</p>

@@ -257,7 +257,7 @@ function RoleSelectUI({ onRoleSet }: { onRoleSet: (role: Role) => void }) {
           One last step
         </p>
         <h1 style={{ fontSize: "32px", fontWeight: 700, color: "#0a0a0a", fontFamily: "Inter, sans-serif", lineHeight: "1.2", marginBottom: "10px" }}>
-          How will you use<br />ShikshaHub?
+          How will you use<br />AI tutor companion?
         </h1>
         <p style={{ fontSize: "14px", color: "#737373", fontFamily: "Inter, sans-serif", lineHeight: "1.6", margin: 0 }}>
           Choose your role — you can always switch later from settings.

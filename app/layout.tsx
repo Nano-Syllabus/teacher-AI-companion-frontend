@@ -23,7 +23,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await auth();
   return (
     <html>
-      <body>
+      <body className={geistSans.className}>
         <SessionProvider session={session}>
           {children}
         </SessionProvider>
