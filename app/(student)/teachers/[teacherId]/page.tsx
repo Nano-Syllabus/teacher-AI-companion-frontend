@@ -10,7 +10,7 @@ import {
   ArrowLeft, BookOpen, MessageSquare, ChevronRight,
   FileText, GraduationCap, Lock, Bell, ChevronDown,
   LogOut, User, Settings, CheckCheck, Clock,
-  AlertCircle, Search, Mail,
+  AlertCircle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,19 +45,35 @@ interface Notification {
   read: boolean;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Monochrome palette (matches NotebookChatPage) ────────────────────────────
+
+const MONO = {
+  bg:        "#0a0a0a",
+  surface:   "#111111",
+  elevated:  "#1a1a1a",
+  border:    "#242424",
+  borderMid: "#333333",
+  muted:     "#555555",
+  secondary: "#888888",
+  primary:   "#cccccc",
+  bright:    "#ffffff",
+};
+
+// ─── Difficulty badges — luminance only ───────────────────────────────────────
 
 const DIFFICULTY_STYLES: Record<Difficulty, { bg: string; text: string; border: string }> = {
-  Beginner:     { bg: "#f5f5f5", text: "#404040", border: "#e5e5e5" },
-  Intermediate: { bg: "#f0f0f0", text: "#171717", border: "#d4d4d4" },
-  Advanced:     { bg: "#0a0a0a", text: "#ffffff", border: "#0a0a0a" },
+  Beginner:     { bg: MONO.elevated, text: MONO.secondary, border: MONO.border },
+  Intermediate: { bg: MONO.elevated, text: MONO.primary,   border: MONO.borderMid },
+  Advanced:     { bg: MONO.bright,   text: MONO.bg,        border: MONO.bright },
 };
+
+// ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_NOTIFICATIONS: Notification[] = [
   { id: "1", type: "access_granted", message: "Mr. Sharma granted you access to Advanced Physics", time: "2m ago", read: false },
-  { id: "2", type: "new_notebook", message: "New notebook added: Calculus II — Week 4", time: "1h ago", read: false },
-  { id: "3", type: "system", message: "Your access request to Ms. Patel was seen", time: "3h ago", read: true },
-  { id: "4", type: "new_notebook", message: "History of Nepal notebook updated", time: "Yesterday", read: true },
+  { id: "2", type: "new_notebook",   message: "New notebook added: Calculus II — Week 4",          time: "1h ago",     read: false },
+  { id: "3", type: "system",         message: "Your access request to Ms. Patel was seen",          time: "3h ago",     read: true },
+  { id: "4", type: "new_notebook",   message: "History of Nepal notebook updated",                  time: "Yesterday",  read: true },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -66,91 +82,246 @@ function getInitials(name: string) {
   return name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase() || "T";
 }
 
+// ─── Global styles ────────────────────────────────────────────────────────────
+
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+  .tp-root {
+    min-height: 100vh;
+    background: ${MONO.bg};
+    color: ${MONO.primary};
+  }
+
+  /* noise grain */
+  .tp-root::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.18;
+  }
+
+  .tp-nav {
+    background: rgba(17,17,17,0.88);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid ${MONO.border};
+  }
+
+  .tp-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 10px; border: 1px solid ${MONO.border};
+    background: transparent; color: ${MONO.primary}; cursor: pointer;
+    font-size: 12px; font-weight: 600; text-decoration: none;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .tp-btn:hover { background: ${MONO.elevated}; color: ${MONO.bright}; border-color: ${MONO.borderMid}; }
+
+  .tp-icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid ${MONO.border};
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; color: ${MONO.secondary}; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tp-icon-btn:hover { background: ${MONO.elevated}; color: ${MONO.bright}; }
+
+  .tp-card {
+    background: ${MONO.surface};
+    border: 1px solid ${MONO.border};
+    border-radius: 20px;
+    transition: border-color 0.2s, box-shadow 0.3s;
+  }
+  .tp-card:hover {
+    border-color: ${MONO.borderMid};
+    box-shadow: 0 20px 60px -12px rgba(0,0,0,0.6);
+  }
+
+  .tp-notebook-card {
+    background: ${MONO.surface};
+    border: 1px solid ${MONO.border};
+    border-radius: 16px;
+    transition: border-color 0.2s, box-shadow 0.3s;
+    will-change: transform;
+  }
+  .tp-notebook-card:hover {
+    border-color: ${MONO.borderMid};
+    box-shadow: 0 16px 48px -8px rgba(0,0,0,0.7);
+  }
+
+  .tp-filter-btn {
+    padding: 6px 12px; border-radius: 10px; border: 1px solid ${MONO.border};
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    background: transparent; color: ${MONO.muted};
+    transition: all 0.15s ease;
+  }
+  .tp-filter-btn:hover { background: ${MONO.elevated}; color: ${MONO.primary}; }
+  .tp-filter-btn.active { background: ${MONO.bright}; color: ${MONO.bg}; border-color: ${MONO.bright}; }
+
+  .tp-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px; border-radius: 12px; border: none;
+    background: ${MONO.bright}; color: ${MONO.bg};
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s, transform 0.12s;
+  }
+  .tp-cta:hover { opacity: 0.9; transform: scale(1.03); }
+  .tp-cta:active { transform: scale(0.96); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: ${MONO.border}; border-radius: 2px; }
+
+  /* skeleton shimmer */
+  @keyframes shimmer {
+    0%   { background-position: -600px 0; }
+    100% { background-position:  600px 0; }
+  }
+  .tp-skeleton {
+    background: linear-gradient(90deg, ${MONO.surface} 25%, ${MONO.elevated} 50%, ${MONO.surface} 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.6s infinite linear;
+    border-radius: 6px;
+  }
+
+  /* dropdown */
+  .tp-dropdown {
+    background: ${MONO.surface};
+    border: 1px solid ${MONO.borderMid};
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+    overflow: hidden;
+  }
+
+  .tp-dropdown-item {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 10px 16px;
+    background: transparent; border: none;
+    color: ${MONO.primary}; font-size: 12px; cursor: pointer;
+    text-align: left; text-decoration: none;
+    transition: background 0.12s, color 0.12s;
+  }
+  .tp-dropdown-item:hover { background: ${MONO.elevated}; color: ${MONO.bright}; }
+  .tp-dropdown-item.danger { color: #ef4444; }
+  .tp-dropdown-item.danger:hover { background: rgba(239,68,68,0.08); color: #f87171; }
+
+  .font-mono-num { font-family: 'JetBrains Mono', monospace; }
+  .font-display  { font-family: 'DM Serif Display', serif; }
+
+  .tp-divider { height: 1px; background: ${MONO.border}; }
+
+  .tp-badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* hover cta reveal */
+  .nb-hover-cta { opacity: 0; transition: opacity 0.2s; }
+  .tp-notebook-card:hover .nb-hover-cta { opacity: 1; }
+`;
+
+function InjectCSS() {
+  useEffect(() => {
+    if (document.getElementById("tp-css")) return;
+    const el = document.createElement("style");
+    el.id = "tp-css";
+    el.textContent = GLOBAL_CSS;
+    document.head.appendChild(el);
+  }, []);
+  return null;
+}
+
+// ─── GSAP helpers ─────────────────────────────────────────────────────────────
+
+function gsapFrom(el: Element | null, from: object, to: object) {
+  const g = (window as any).gsap;
+  if (!g || !el) return;
+  g.fromTo(el, from, to);
+}
+
 // ─── Notification Panel ───────────────────────────────────────────────────────
 
 function NotificationPanel({
-  notifications,
-  onMarkAll,
-  onClose,
+  notifications, onMarkAll, onClose,
 }: {
-  notifications: Notification[];
-  onMarkAll: () => void;
-  onClose: () => void;
+  notifications: Notification[]; onMarkAll: () => void; onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    const el = panelRef.current;
-    if (!el || !(window as any).gsap) return;
-    (window as any).gsap.fromTo(
-      el,
-      { opacity: 0, y: -8, scale: 0.97 },
+    gsapFrom(panelRef.current,
+      { opacity: 0, y: -10, scale: 0.96 },
       { opacity: 1, y: 0, scale: 1, duration: 0.22, ease: "power2.out" }
     );
   }, []);
 
   const iconMap = {
-    access_granted: <CheckCheck size={13} />,
-    new_notebook: <BookOpen size={13} />,
-    system: <AlertCircle size={13} />,
+    access_granted: <CheckCheck size={12} />,
+    new_notebook:   <BookOpen size={12} />,
+    system:         <AlertCircle size={12} />,
   };
 
   return (
-    <div
-      ref={panelRef}
-      className="absolute right-0 top-full mt-3 w-80 rounded-2xl shadow-2xl overflow-hidden z-50"
-      style={{ background: "#ffffff", border: "1.5px solid #e5e5e5", transformOrigin: "top right" }}
+    <div ref={panelRef} className="tp-dropdown"
+      style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 300, zIndex: 50, transformOrigin: "top right" }}
     >
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid #e5e5e5" }}>
-        <span className="text-sm font-bold" style={{ color: "#0a0a0a" }}>Notifications</span>
-        <button
-          onClick={onMarkAll}
-          className="text-xs font-medium transition-colors hover:text-black"
-          style={{ color: "#737373" }}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${MONO.border}` }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: MONO.bright }}>Notifications</span>
+        <button onClick={onMarkAll} style={{ fontSize: 11, color: MONO.muted, background: "none", border: "none", cursor: "pointer", transition: "color 0.15s" }}
+          onMouseEnter={e => (e.currentTarget.style.color = MONO.bright)}
+          onMouseLeave={e => (e.currentTarget.style.color = MONO.muted)}
         >
           Mark all read
         </button>
       </div>
 
-      <div className="max-h-72 overflow-y-auto">
+      <div style={{ maxHeight: 280, overflowY: "auto" }}>
         {notifications.length === 0 ? (
-          <div className="py-10 text-center">
-            <Bell size={20} style={{ color: "#e5e5e5", margin: "0 auto 8px" }} />
-            <p className="text-xs" style={{ color: "#a3a3a3" }}>All caught up</p>
+          <div style={{ padding: "40px 16px", textAlign: "center" }}>
+            <Bell size={18} style={{ color: MONO.muted, margin: "0 auto 8px" }} />
+            <p style={{ fontSize: 12, color: MONO.muted }}>All caught up</p>
           </div>
-        ) : (
-          notifications.map((n) => (
-            <div
-              key={n.id}
-              className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-gray-50 cursor-pointer"
-              style={{ borderBottom: "1px solid #f5f5f5", opacity: n.read ? 0.55 : 1 }}
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                style={{ background: n.read ? "#f5f5f5" : "#0a0a0a", color: n.read ? "#737373" : "#ffffff" }}
-              >
-                {iconMap[n.type]}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs leading-snug" style={{ color: "#0a0a0a" }}>{n.message}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Clock size={10} style={{ color: "#a3a3a3" }} />
-                  <span className="text-xs" style={{ color: "#a3a3a3" }}>{n.time}</span>
-                </div>
-              </div>
-              {!n.read && (
-                <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: "#0a0a0a" }} />
-              )}
+        ) : notifications.map(n => (
+          <div key={n.id} style={{
+            display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 16px",
+            borderBottom: `1px solid ${MONO.border}`, opacity: n.read ? 0.45 : 1,
+            cursor: "pointer", transition: "background 0.12s",
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = MONO.elevated)}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >
+            <div style={{
+              width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: n.read ? MONO.elevated : MONO.bright,
+              color: n.read ? MONO.muted : MONO.bg,
+              border: `1px solid ${MONO.border}`,
+            }}>
+              {iconMap[n.type]}
             </div>
-          ))
-        )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 12, color: MONO.primary, lineHeight: 1.5, margin: 0 }}>{n.message}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                <Clock size={9} style={{ color: MONO.muted }} />
+                <span style={{ fontSize: 11, color: MONO.muted }}>{n.time}</span>
+              </div>
+            </div>
+            {!n.read && <div style={{ width: 6, height: 6, borderRadius: "50%", background: MONO.bright, flexShrink: 0, marginTop: 6 }} />}
+          </div>
+        ))}
       </div>
 
-      <div className="px-4 py-3" style={{ borderTop: "1px solid #e5e5e5" }}>
-        <button
-          onClick={onClose}
-          className="w-full text-xs font-semibold py-2 rounded-lg transition-colors hover:bg-black hover:text-white"
-          style={{ color: "#0a0a0a", border: "1px solid #e5e5e5" }}
+      <div style={{ padding: "10px 16px", borderTop: `1px solid ${MONO.border}` }}>
+        <button onClick={onClose} style={{
+          width: "100%", padding: "8px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+          color: MONO.primary, background: MONO.elevated, border: `1px solid ${MONO.border}`, cursor: "pointer",
+          transition: "background 0.15s, color 0.15s",
+        }}
+          onMouseEnter={e => { (e.currentTarget.style.background = MONO.bright); (e.currentTarget.style.color = MONO.bg); }}
+          onMouseLeave={e => { (e.currentTarget.style.background = MONO.elevated); (e.currentTarget.style.color = MONO.primary); }}
         >
           View all notifications
         </button>
@@ -164,50 +335,33 @@ function NotificationPanel({
 function UserMenu({ session, onSignOut }: { session: any; onSignOut: () => void }) {
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = menuRef.current;
-    if (!el || !(window as any).gsap) return;
-    (window as any).gsap.fromTo(
-      el,
-      { opacity: 0, y: -8, scale: 0.97 },
+    gsapFrom(menuRef.current,
+      { opacity: 0, y: -10, scale: 0.96 },
       { opacity: 1, y: 0, scale: 1, duration: 0.22, ease: "power2.out" }
     );
   }, []);
 
   return (
-    <div
-      ref={menuRef}
-      className="absolute right-0 top-full mt-3 w-52 rounded-2xl shadow-2xl overflow-hidden z-50"
-      style={{ background: "#ffffff", border: "1.5px solid #e5e5e5", transformOrigin: "top right" }}
+    <div ref={menuRef} className="tp-dropdown"
+      style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 210, zIndex: 50, transformOrigin: "top right" }}
     >
-      <div className="px-4 py-3" style={{ borderBottom: "1px solid #e5e5e5" }}>
-        <p className="text-xs font-bold truncate" style={{ color: "#0a0a0a" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${MONO.border}` }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: MONO.bright, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {session?.user?.name || "Student"}
         </p>
-        <p className="text-xs truncate mt-0.5" style={{ color: "#a3a3a3" }}>
+        <p style={{ fontSize: 11, color: MONO.muted, margin: "3px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {session?.user?.email || ""}
         </p>
       </div>
       {[
-        { icon: <User size={13} />, label: "My Profile" },
-        { icon: <Settings size={13} />, label: "Settings" },
-      ].map((item) => (
-        <button
-          key={item.label}
-          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition-colors hover:bg-gray-50 text-left"
-          style={{ color: "#0a0a0a" }}
-        >
-          {item.icon}
-          {item.label}
-        </button>
+        { icon: <User size={12} />, label: "My Profile" },
+        { icon: <Settings size={12} />, label: "Settings" },
+      ].map(item => (
+        <button key={item.label} className="tp-dropdown-item">{item.icon}{item.label}</button>
       ))}
-      <div style={{ borderTop: "1px solid #e5e5e5" }}>
-        <button
-          onClick={onSignOut}
-          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition-colors hover:bg-gray-50"
-          style={{ color: "#dc2626" }}
-        >
-          <LogOut size={13} />
-          Sign out
+      <div style={{ borderTop: `1px solid ${MONO.border}` }}>
+        <button onClick={onSignOut} className="tp-dropdown-item danger">
+          <LogOut size={12} /> Sign out
         </button>
       </div>
     </div>
@@ -225,144 +379,96 @@ function NotebookCard({ notebook, teacherId, index }: { notebook: Notebook; teac
     const el = cardRef.current;
     if (!el || !(window as any).gsap) return;
     const gsap = (window as any).gsap;
-
-    const handleMove = (e: MouseEvent) => {
-      const rect = el.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width - 0.5) * 6;
-      const y = ((e.clientY - rect.top) / rect.height - 0.5) * -6;
-      gsap.to(el, { rotateX: y, rotateY: x, duration: 0.3, ease: "power2.out", transformPerspective: 800 });
+    const onMove = (e: MouseEvent) => {
+      const r = el.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width  - 0.5) * 7;
+      const y = ((e.clientY - r.top)  / r.height - 0.5) * -7;
+      gsap.to(el, { rotateX: y, rotateY: x, duration: 0.3, ease: "power2.out", transformPerspective: 900 });
     };
-    const handleLeave = () => {
-      gsap.to(el, { rotateX: 0, rotateY: 0, duration: 0.5, ease: "elastic.out(1,0.7)" });
-    };
-
-    el.addEventListener("mousemove", handleMove);
-    el.addEventListener("mouseleave", handleLeave);
-    return () => {
-      el.removeEventListener("mousemove", handleMove);
-      el.removeEventListener("mouseleave", handleLeave);
-    };
+    const onLeave = () => gsap.to(el, { rotateX: 0, rotateY: 0, duration: 0.5, ease: "elastic.out(1,0.7)" });
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => { el.removeEventListener("mousemove", onMove); el.removeEventListener("mouseleave", onLeave); };
   }, []);
 
   return (
-    <Link href={`/teachers/${teacherId}/chat?notebook=${notebook.id}`} className="block group">
-      <div
-        ref={cardRef}
-        className="notebook-card relative rounded-2xl p-5 h-full flex flex-col"
-        style={{
-          background: "#ffffff",
-          border: "1.5px solid #e5e5e5",
-          transformStyle: "preserve-3d",
-          willChange: "transform",
-          transition: "box-shadow 0.3s ease, border-color 0.2s ease",
-        }}
-        onMouseEnter={(e) => {
-          const el = e.currentTarget as HTMLDivElement;
-          el.style.boxShadow = "0 20px 60px -12px rgba(0,0,0,0.1)";
-          el.style.borderColor = "#0a0a0a";
-        }}
-        onMouseLeave={(e) => {
-          const el = e.currentTarget as HTMLDivElement;
-          el.style.boxShadow = "none";
-          el.style.borderColor = "#e5e5e5";
-        }}
-      >
+    <Link href={`/teachers/${teacherId}/chat?notebook=${notebook.id}`} style={{ textDecoration: "none", display: "block" }}>
+      <div ref={cardRef} className="tp-notebook-card" style={{ padding: 20, display: "flex", flexDirection: "column", height: "100%", transformStyle: "preserve-3d", position: "relative" }}>
+
         {/* Index */}
-        <div
-          className="absolute top-4 left-4 w-6 h-6 rounded-md flex items-center justify-center"
-          style={{ background: "#f5f5f5" }}
-        >
-          <span className="text-xs font-bold" style={{ color: "#a3a3a3", fontFamily: "'JetBrains Mono', monospace" }}>
+        <div style={{
+          position: "absolute", top: 14, left: 14, width: 24, height: 24, borderRadius: 7,
+          background: MONO.elevated, border: `1px solid ${MONO.border}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <span className="font-mono-num" style={{ fontSize: 10, fontWeight: 700, color: MONO.muted }}>
             {String(index + 1).padStart(2, "0")}
           </span>
         </div>
 
-        {/* Lock / Free badge */}
-        <div className="absolute top-4 right-4">
+        {/* Lock / Free */}
+        <div style={{ position: "absolute", top: 14, right: 14 }}>
           {notebook.is_free ? (
-            <span
-              className="px-2 py-0.5 rounded-lg text-xs font-bold"
-              style={{ background: "#0a0a0a", color: "#ffffff", fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              FREE
-            </span>
+            <span className="tp-badge" style={{ background: MONO.bright, color: MONO.bg }}>FREE</span>
           ) : (
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: "#f5f5f5", border: "1px solid #e5e5e5" }}
-            >
-              <Lock size={13} style={{ color: "#a3a3a3" }} />
+            <div style={{
+              width: 26, height: 26, borderRadius: 8,
+              background: MONO.elevated, border: `1px solid ${MONO.border}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Lock size={12} style={{ color: MONO.muted }} />
             </div>
           )}
         </div>
 
         {/* Icon + Title */}
-        <div className="flex items-start gap-3 mt-8 mb-3 pr-8">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "#f5f5f5", border: "1px solid #e5e5e5" }}
-          >
-            <FileText size={15} style={{ color: "#404040" }} />
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 38, marginBottom: 12, paddingRight: 24 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+            background: MONO.elevated, border: `1px solid ${MONO.border}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <FileText size={14} style={{ color: MONO.secondary }} />
           </div>
-          <div className="min-w-0">
-            <p
-              className="font-bold text-sm leading-snug"
-              style={{ color: "#0a0a0a", fontFamily: "'Inter', sans-serif" }}
-            >
+          <div style={{ minWidth: 0 }}>
+            <p className="font-display" style={{ fontWeight: 700, fontSize: 15, color: MONO.bright, margin: 0, lineHeight: 1.3 }}>
               {notebook.title}
             </p>
-            <p
-              className="text-xs mt-1 leading-relaxed line-clamp-2"
-              style={{ color: "#737373" }}
-            >
+            <p style={{ fontSize: 12, color: MONO.muted, margin: "4px 0 0", lineHeight: 1.5,
+              overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as any }}>
               {notebook.description}
             </p>
           </div>
         </div>
 
         {/* Tags */}
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span
-            className="text-xs px-2 py-0.5 rounded-md font-semibold"
-            style={{ background: diff.bg, color: diff.text, border: `1px solid ${diff.border}` }}
-          >
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          <span className="tp-badge" style={{ background: diff.bg, color: diff.text, border: `1px solid ${diff.border}` }}>
             {notebook.difficulty}
           </span>
           {notebook.subject && (
-            <span
-              className="text-xs px-2 py-0.5 rounded-md font-medium"
-              style={{ background: "#f5f5f5", color: "#737373", border: "1px solid #e5e5e5" }}
-            >
+            <span className="tp-badge" style={{ background: MONO.elevated, color: MONO.secondary, border: `1px solid ${MONO.border}` }}>
               {notebook.subject}
             </span>
           )}
         </div>
 
         {/* Footer */}
-        <div
-          className="flex items-center gap-4 pt-3 mt-auto"
-          style={{ borderTop: "1px solid #f0f0f0" }}
-        >
-          <div className="flex items-center gap-1.5">
-            <BookOpen size={12} style={{ color: "#a3a3a3" }} />
-            <span
-              className="text-xs font-semibold"
-              style={{ color: "#0a0a0a", fontFamily: "'JetBrains Mono', monospace" }}
-            >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 12, marginTop: "auto", borderTop: `1px solid ${MONO.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <BookOpen size={11} style={{ color: MONO.muted }} />
+            <span className="font-mono-num" style={{ fontSize: 12, fontWeight: 700, color: MONO.primary }}>
               {notebook.doc_count}
             </span>
-            <span className="text-xs" style={{ color: "#a3a3a3" }}>chapters</span>
+            <span style={{ fontSize: 12, color: MONO.muted }}>chapters</span>
           </div>
-          <span className="text-xs ml-auto" style={{ color: "#a3a3a3" }}>
+          <span style={{ fontSize: 11, color: MONO.muted, marginLeft: "auto" }}>
             {new Date(notebook.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </span>
         </div>
 
         {/* Hover CTA */}
-        <div
-          className="mt-3 flex items-center gap-1 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          style={{ color: "#0a0a0a" }}
-        >
+        <div className="nb-hover-cta" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: MONO.bright }}>
           {notebook.is_free ? "Open notebook" : "Request access"}
           <ChevronRight size={12} />
         </div>
@@ -371,17 +477,17 @@ function NotebookCard({ notebook, teacherId, index }: { notebook: Notebook; teac
   );
 }
 
-// ─── Skeleton Loaders ─────────────────────────────────────────────────────────
+// ─── Skeletons ────────────────────────────────────────────────────────────────
 
 function ProfileSkeleton() {
   return (
-    <div className="rounded-3xl p-8 mb-8 animate-pulse" style={{ background: "#f5f5f5", border: "1.5px solid #e5e5e5" }}>
-      <div className="flex items-start gap-6">
-        <div className="w-20 h-20 rounded-2xl flex-shrink-0" style={{ background: "#e5e5e5" }} />
-        <div className="flex-1 space-y-3 pt-1">
-          <div className="h-6 rounded" style={{ background: "#e5e5e5", width: "40%" }} />
-          <div className="h-4 rounded" style={{ background: "#e5e5e5", width: "28%" }} />
-          <div className="h-4 rounded mt-4" style={{ background: "#e5e5e5", width: "20%" }} />
+    <div className="tp-card" style={{ padding: 32, marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 24 }}>
+        <div className="tp-skeleton" style={{ width: 80, height: 80, borderRadius: 16, flexShrink: 0 }} />
+        <div style={{ flex: 1 }}>
+          <div className="tp-skeleton" style={{ height: 24, width: "40%", marginBottom: 10 }} />
+          <div className="tp-skeleton" style={{ height: 14, width: "25%", marginBottom: 20 }} />
+          <div className="tp-skeleton" style={{ height: 14, width: "20%" }} />
         </div>
       </div>
     </div>
@@ -390,22 +496,22 @@ function ProfileSkeleton() {
 
 function NotebookSkeleton() {
   return (
-    <div className="rounded-2xl p-5 h-44 animate-pulse" style={{ background: "#f5f5f5", border: "1.5px solid #e5e5e5" }}>
-      <div className="flex gap-3 mb-3">
-        <div className="w-9 h-9 rounded-xl" style={{ background: "#e5e5e5" }} />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 rounded" style={{ background: "#e5e5e5", width: "65%" }} />
-          <div className="h-3 rounded" style={{ background: "#e5e5e5", width: "45%" }} />
+    <div style={{ background: MONO.surface, border: `1px solid ${MONO.border}`, borderRadius: 16, padding: 20, height: 176 }}>
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div className="tp-skeleton" style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0 }} />
+        <div style={{ flex: 1 }}>
+          <div className="tp-skeleton" style={{ height: 14, width: "65%", marginBottom: 8 }} />
+          <div className="tp-skeleton" style={{ height: 11, width: "45%" }} />
         </div>
       </div>
-      <div className="flex gap-2 mb-4">
-        <div className="h-5 w-20 rounded-md" style={{ background: "#e5e5e5" }} />
-        <div className="h-5 w-16 rounded-md" style={{ background: "#e5e5e5" }} />
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <div className="tp-skeleton" style={{ height: 20, width: 76, borderRadius: 6 }} />
+        <div className="tp-skeleton" style={{ height: 20, width: 60, borderRadius: 6 }} />
       </div>
-      <div className="h-px" style={{ background: "#e5e5e5" }} />
-      <div className="flex justify-between mt-3">
-        <div className="h-3 w-20 rounded" style={{ background: "#e5e5e5" }} />
-        <div className="h-3 w-16 rounded" style={{ background: "#e5e5e5" }} />
+      <div className="tp-skeleton" style={{ height: 1, marginBottom: 12 }} />
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div className="tp-skeleton" style={{ height: 11, width: 80 }} />
+        <div className="tp-skeleton" style={{ height: 11, width: 60 }} />
       </div>
     </div>
   );
@@ -426,135 +532,106 @@ export default function TeacherProfilePage() {
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
   const { data: session } = useSession();
 
-  const navRef = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const bellRef = useRef<HTMLButtonElement>(null);
+  const navRef   = useRef<HTMLDivElement>(null);
+  const heroRef  = useRef<HTMLDivElement>(null);
+  const gridRef  = useRef<HTMLDivElement>(null);
+  const bellRef  = useRef<HTMLButtonElement>(null);
   const gsapLoaded = useRef(false);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Load GSAP
+  // Load GSAP + entrance
   useEffect(() => {
     if (gsapLoaded.current) return;
     const script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js";
-    script.onload = () => { gsapLoaded.current = true; runEntrance(); };
+    script.onload = () => {
+      gsapLoaded.current = true;
+      const gsap = (window as any).gsap;
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      if (navRef.current)  tl.fromTo(navRef.current,  { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45 });
+      if (heroRef.current) tl.fromTo(heroRef.current, { y: 28, opacity: 0  }, { y: 0, opacity: 1, duration: 0.5 }, "-=0.2");
+    };
     document.head.appendChild(script);
-    return () => { document.head.removeChild(script); };
   }, []);
 
-  function runEntrance() {
-    const gsap = (window as any).gsap;
-    if (!gsap) return;
-    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-    if (navRef.current) tl.fromTo(navRef.current, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 });
-    if (heroRef.current) {
-      tl.fromTo(heroRef.current, { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55 }, "-=0.2");
-    }
-  }
-
-  // Animate notebooks grid when data arrives
+  // Animate grid cards when data arrives
   useEffect(() => {
     if (loading || !gridRef.current) return;
-    const gsap = (window as any).gsap;
-    if (!gsap) return;
-    const cards = gridRef.current.querySelectorAll(".notebook-card");
-    gsap.fromTo(
-      cards,
-      { y: 30, opacity: 0, clipPath: "inset(100% 0 0 0)" },
-      { y: 0, opacity: 1, clipPath: "inset(0% 0 0 0)", duration: 0.5, stagger: 0.07, ease: "power3.out" }
+    const g = (window as any).gsap;
+    if (!g) return;
+    const cards = gridRef.current.querySelectorAll(".tp-notebook-card");
+    g.fromTo(cards,
+      { y: 28, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.45, stagger: 0.07, ease: "power3.out" }
     );
   }, [loading, notebooks, activeSubject]);
 
   function shakeBell() {
-    const gsap = (window as any).gsap;
-    if (!gsap || !bellRef.current) return;
-    gsap.fromTo(
-      bellRef.current,
-      { rotate: 0 },
-      { rotate: 15, duration: 0.1, yoyo: true, repeat: 5, ease: "power1.inOut", onComplete: () => gsap.set(bellRef.current, { rotate: 0 }) }
-    );
+    const g = (window as any).gsap;
+    if (!g || !bellRef.current) return;
+    g.fromTo(bellRef.current, { rotate: 0 }, {
+      rotate: 14, duration: 0.1, yoyo: true, repeat: 5,
+      ease: "power1.inOut", onComplete: () => g.set(bellRef.current, { rotate: 0 }),
+    });
   }
 
   useEffect(() => {
     let mounted = true;
-    async function load() {
+    (async () => {
       try {
         const session = await getSession();
-        const token = session?.backendAccessToken;
-        const [teacherData, notebooksData] = await Promise.all([
+        const token = (session as any)?.backendAccessToken;
+        const [td, nd] = await Promise.all([
           apiFetch<Teacher>(`/student/teachers/${teacherId}`, token),
           apiFetch<Notebook[]>(`/student/teachers/${teacherId}/notebooks`, token),
         ]);
         if (!mounted) return;
-        setTeacher(teacherData);
-        setNotebooks(notebooksData);
-      } catch (error) {
-        console.error("Failed to load teacher profile", error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-    load();
+        setTeacher(td); setNotebooks(nd);
+      } catch (e) { console.error(e); }
+      finally { if (mounted) setLoading(false); }
+    })();
     return () => { mounted = false; };
   }, [teacherId]);
 
   // Close dropdowns on outside click
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const target = e.target as HTMLElement;
-      if (!target.closest("[data-dropdown]")) {
-        setNotifOpen(false);
-        setUserMenuOpen(false);
+    const handle = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-dropdown]")) {
+        setNotifOpen(false); setUserMenuOpen(false);
       }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
   }, []);
 
-  const subjects = Array.from(new Set(notebooks.map((n) => n.subject).filter(Boolean)));
-  const filtered = activeSubject === "All" ? notebooks : notebooks.filter((n) => n.subject === activeSubject);
+  const subjects  = Array.from(new Set(notebooks.map(n => n.subject).filter(Boolean)));
+  const filtered  = activeSubject === "All" ? notebooks : notebooks.filter(n => n.subject === activeSubject);
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .font-display { font-family: 'DM Serif Display', serif; }
-      `}</style>
+      <InjectCSS />
+      <div className="tp-root">
 
-      <div className="min-h-screen" style={{ background: "#fafafa" }}>
+        {/* ── Nav ── */}
+        <nav ref={navRef} className="tp-nav" style={{ position: "sticky", top: 0, zIndex: 30, padding: "0 24px" }}>
+          <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, gap: 16 }}>
 
-        {/* ── Navigation ── */}
-        <nav
-          ref={navRef}
-          className="sticky top-0 z-30 px-6"
-          style={{
-            background: "rgba(255,255,255,0.92)",
-            backdropFilter: "blur(16px)",
-            borderBottom: "1px solid #e5e5e5",
-          }}
-        >
-          <div className="max-w-4xl mx-auto flex items-center justify-between h-14 gap-4">
-            {/* Back + Logo */}
-            <div className="flex items-center gap-4">
-              <Link
-                href="/teachers"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:bg-gray-100"
-                style={{ color: "#0a0a0a", border: "1px solid #e5e5e5" }}
-              >
-                <ArrowLeft size={14} />
-                <span className="hidden sm:inline">All Teachers</span>
+            {/* Left */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Link href="/teachers" className="tp-btn">
+                <ArrowLeft size={13} />
+                <span style={{ display: "none" }}>All Teachers</span>
+                <span className="sm-show">All Teachers</span>
               </Link>
-              <div className="h-4 w-px" style={{ background: "#e5e5e5" }} />
-              <Link href="/" className="flex items-center gap-2 group">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110"
-                  style={{ background: "#0a0a0a" }}
-                >
-                  <GraduationCap size={14} color="#ffffff" />
+              <div style={{ width: 1, height: 16, background: MONO.border }} />
+              <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 9, background: MONO.bright,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <GraduationCap size={14} color={MONO.bg} />
                 </div>
-                <span className="font-bold text-sm hidden sm:block" style={{ color: "#0a0a0a" }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: MONO.bright, fontFamily: "'Inter', sans-serif" }}>
                   TeacherOS
                 </span>
               </Link>
@@ -562,32 +639,33 @@ export default function TeacherProfilePage() {
 
             {/* Breadcrumb */}
             {teacher && (
-              <div
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
-                style={{ background: "#f5f5f5", border: "1px solid #e5e5e5", color: "#737373" }}
-              >
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 12px", borderRadius: 10,
+                background: MONO.elevated, border: `1px solid ${MONO.border}`,
+                fontSize: 11, color: MONO.muted,
+              }}>
                 <span>Teachers</span>
-                <ChevronRight size={11} style={{ color: "#a3a3a3" }} />
-                <span className="font-semibold" style={{ color: "#0a0a0a" }}>{teacher.name}</span>
+                <ChevronRight size={10} style={{ color: MONO.muted }} />
+                <span style={{ fontWeight: 700, color: MONO.bright }}>{teacher.name}</span>
               </div>
             )}
 
-            {/* Right side */}
-            <div className="flex items-center gap-2">
+            {/* Right */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {/* Bell */}
-              <div data-dropdown className="relative">
-                <button
-                  ref={bellRef}
-                  onClick={() => { setNotifOpen((v) => !v); setUserMenuOpen(false); if (!notifOpen) shakeBell(); }}
-                  className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-gray-100"
-                  style={{ border: "1px solid #e5e5e5" }}
+              <div data-dropdown style={{ position: "relative" }}>
+                <button ref={bellRef} className="tp-icon-btn"
+                  onClick={() => { setNotifOpen(v => !v); setUserMenuOpen(false); if (!notifOpen) shakeBell(); }}
+                  style={{ position: "relative" }}
                 >
-                  <Bell size={15} style={{ color: "#0a0a0a" }} />
+                  <Bell size={15} />
                   {unreadCount > 0 && (
-                    <span
-                      className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center"
-                      style={{ background: "#0a0a0a", color: "#ffffff", fontSize: "9px", fontFamily: "'JetBrains Mono', monospace" }}
-                    >
+                    <span className="font-mono-num" style={{
+                      position: "absolute", top: 4, right: 4, width: 16, height: 16,
+                      borderRadius: "50%", background: MONO.bright, color: MONO.bg,
+                      fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
                       {unreadCount}
                     </span>
                   )}
@@ -595,218 +673,161 @@ export default function TeacherProfilePage() {
                 {notifOpen && (
                   <NotificationPanel
                     notifications={notifications}
-                    onMarkAll={() => setNotifications((n) => n.map((x) => ({ ...x, read: true })))}
+                    onMarkAll={() => setNotifications(n => n.map(x => ({ ...x, read: true })))}
                     onClose={() => setNotifOpen(false)}
                   />
                 )}
               </div>
 
               {/* User */}
-              <div data-dropdown className="relative">
+              <div data-dropdown style={{ position: "relative" }}>
                 <button
-                  onClick={() => { setUserMenuOpen((v) => !v); setNotifOpen(false); }}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl transition-colors hover:bg-gray-100"
-                  style={{ border: "1px solid #e5e5e5" }}
+                  onClick={() => { setUserMenuOpen(v => !v); setNotifOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "5px 12px 5px 6px", borderRadius: 10,
+                    background: "transparent", border: `1px solid ${MONO.border}`,
+                    cursor: "pointer", transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = MONO.elevated)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
                   {session?.user?.image ? (
-                    <img
-                      src={session.user.image}
-                      alt="avatar"
-                      className="w-6 h-6 rounded-lg object-cover"
-                      style={{ filter: "grayscale(100%)" }}
+                    <img src={session.user.image} alt="avatar"
+                      style={{ width: 24, height: 24, borderRadius: 7, objectFit: "cover", filter: "grayscale(100%)" }}
                     />
                   ) : (
-                    <div
-                      className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold"
-                      style={{ background: "#0a0a0a", color: "#ffffff" }}
-                    >
+                    <div className="font-mono-num" style={{
+                      width: 24, height: 24, borderRadius: 7, background: MONO.elevated,
+                      border: `1px solid ${MONO.border}`, display: "flex", alignItems: "center",
+                      justifyContent: "center", fontSize: 10, fontWeight: 700, color: MONO.bright,
+                    }}>
                       {getInitials(session?.user?.name || "S")}
                     </div>
                   )}
-                  <span className="text-xs font-semibold hidden sm:block" style={{ color: "#0a0a0a" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: MONO.primary }}>
                     {session?.user?.name?.split(" ")[0] || "Student"}
                   </span>
-                  <ChevronDown
-                    size={12}
-                    style={{
-                      color: "#a3a3a3",
-                      transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.2s ease",
-                    }}
-                  />
+                  <ChevronDown size={11} style={{
+                    color: MONO.muted,
+                    transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s",
+                  }} />
                 </button>
-                {userMenuOpen && (
-                  <UserMenu session={session} onSignOut={() => signOut({ callbackUrl: "/" })} />
-                )}
+                {userMenuOpen && <UserMenu session={session} onSignOut={() => signOut({ callbackUrl: "/" })} />}
               </div>
             </div>
           </div>
         </nav>
 
-        <div className="max-w-4xl mx-auto px-6 py-10">
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
 
-          {/* ── Profile Header ── */}
-          {loading ? (
-            <ProfileSkeleton />
-          ) : teacher ? (
-            <div
-              ref={heroRef}
-              className="rounded-3xl p-8 mb-8"
-              style={{ background: "#ffffff", border: "1.5px solid #e5e5e5" }}
-            >
-              <div className="flex items-start gap-6 flex-wrap">
+          {/* ── Profile Hero ── */}
+          {loading ? <ProfileSkeleton /> : teacher ? (
+            <div ref={heroRef} className="tp-card" style={{ padding: 32, marginBottom: 28 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 24, flexWrap: "wrap" }}>
                 {/* Avatar */}
                 {teacher.picture ? (
-                  <img
-                    src={teacher.picture}
-                    alt={teacher.name}
-                    className="w-20 h-20 rounded-2xl object-cover flex-shrink-0"
-                    style={{ filter: "grayscale(100%)" }}
-                  />
+                  <img src={teacher.picture} alt={teacher.name} style={{
+                    width: 76, height: 76, borderRadius: 16, objectFit: "cover", flexShrink: 0,
+                    filter: "grayscale(100%)", border: `1px solid ${MONO.border}`,
+                  }} />
                 ) : (
-                  <div
-                    className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
-                    style={{ background: "#0a0a0a", color: "#ffffff", fontFamily: "'DM Serif Display', serif" }}
-                  >
+                  <div className="font-display" style={{
+                    width: 76, height: 76, borderRadius: 16, flexShrink: 0,
+                    background: MONO.elevated, border: `1px solid ${MONO.borderMid}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 26, fontWeight: 700, color: MONO.bright,
+                  }}>
                     {getInitials(teacher.name)}
                   </div>
                 )}
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div>
-                      <p
-                        className="font-mono text-xs tracking-widest uppercase mb-2"
-                        style={{ color: "#a3a3a3", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.15em" }}
-                      >
-                        Educator
-                      </p>
-                      <h1
-                        className="font-bold text-3xl leading-tight mb-1"
-                        style={{ color: "#0a0a0a", fontFamily: "'DM Serif Display', serif" }}
-                      >
-                        {teacher.name}
-                      </h1>
-                      <p className="text-sm" style={{ color: "#737373" }}>{teacher.email}</p>
-                    </div>
-                  </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="font-mono-num" style={{ fontSize: 10, color: MONO.muted, letterSpacing: "0.14em", textTransform: "uppercase", margin: "0 0 6px" }}>
+                    Educator
+                  </p>
+                  <h1 className="font-display" style={{ fontSize: 30, color: MONO.bright, margin: "0 0 4px", letterSpacing: "-0.01em", lineHeight: 1.15 }}>
+                    {teacher.name}
+                  </h1>
+                  <p style={{ fontSize: 13, color: MONO.muted, margin: 0 }}>{teacher.email}</p>
 
                   {/* Stats row */}
-                  <div
-                    className="flex items-center gap-6 mt-5 pt-5 flex-wrap"
-                    style={{ borderTop: "1px solid #f0f0f0" }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ background: "#f5f5f5", border: "1px solid #e5e5e5" }}
-                      >
-                        <BookOpen size={14} style={{ color: "#404040" }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 24, marginTop: 20, paddingTop: 20, borderTop: `1px solid ${MONO.border}`, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 9, background: MONO.elevated, border: `1px solid ${MONO.border}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <BookOpen size={13} style={{ color: MONO.secondary }} />
                       </div>
                       <div>
-                        <p
-                          className="text-sm font-bold leading-tight"
-                          style={{ color: "#0a0a0a", fontFamily: "'JetBrains Mono', monospace" }}
-                        >
-                          {notebooks.length}
-                        </p>
-                        <p className="text-xs" style={{ color: "#a3a3a3" }}>notebooks</p>
+                        <p className="font-mono-num" style={{ fontSize: 14, fontWeight: 700, color: MONO.bright, margin: 0 }}>{notebooks.length}</p>
+                        <p style={{ fontSize: 11, color: MONO.muted, margin: 0 }}>notebooks</p>
                       </div>
                     </div>
                     {subjects.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center"
-                          style={{ background: "#f5f5f5", border: "1px solid #e5e5e5" }}
-                        >
-                          <FileText size={14} style={{ color: "#404040" }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 9, background: MONO.elevated, border: `1px solid ${MONO.border}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <FileText size={13} style={{ color: MONO.secondary }} />
                         </div>
                         <div>
-                          <p
-                            className="text-sm font-bold leading-tight"
-                            style={{ color: "#0a0a0a", fontFamily: "'JetBrains Mono', monospace" }}
-                          >
-                            {subjects.length}
-                          </p>
-                          <p className="text-xs" style={{ color: "#a3a3a3" }}>subjects</p>
+                          <p className="font-mono-num" style={{ fontSize: 14, fontWeight: 700, color: MONO.bright, margin: 0 }}>{subjects.length}</p>
+                          <p style={{ fontSize: 11, color: MONO.muted, margin: 0 }}>subjects</p>
                         </div>
                       </div>
                     )}
-                    <div className="ml-auto">
-                      <Link
-                        href={`/teachers/${teacherId}/chat`}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95"
-                        style={{ background: "#0a0a0a", color: "#ffffff" }}
-                      >
-                        <MessageSquare size={14} />
-                        Chat with AI
-                      </Link>
-                    </div>
+                    <Link href={`/teachers/${teacherId}/chat`} className="tp-cta" style={{ marginLeft: "auto" }}>
+                      <MessageSquare size={13} /> Chat with AI
+                    </Link>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-20">
-              <p className="text-sm" style={{ color: "#a3a3a3" }}>Teacher not found.</p>
+            <div style={{ textAlign: "center", padding: "80px 0" }}>
+              <p style={{ fontSize: 13, color: MONO.muted }}>Teacher not found.</p>
             </div>
           )}
 
           {/* ── Notebooks ── */}
           <div>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              <h2
-                className="font-bold text-xl"
-                style={{ color: "#0a0a0a", fontFamily: "'DM Serif Display', serif" }}
-              >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <h2 className="font-display" style={{ fontSize: 22, color: MONO.bright, margin: 0 }}>
                 Notebooks
               </h2>
 
-              {/* Subject filter tabs */}
               {subjects.length > 1 && (
-                <div className="flex items-center gap-2 flex-wrap">
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <button
+                    className={`tp-filter-btn${activeSubject === "All" ? " active" : ""}`}
                     onClick={() => setActiveSubject("All")}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 hover:scale-105"
-                    style={{
-                      background: activeSubject === "All" ? "#0a0a0a" : "#f5f5f5",
-                      color: activeSubject === "All" ? "#ffffff" : "#737373",
-                      border: `1px solid ${activeSubject === "All" ? "#0a0a0a" : "#e5e5e5"}`,
-                    }}
                   >
                     All
-                    <span
-                      className="ml-1.5 px-1.5 py-0.5 rounded text-xs"
-                      style={{
-                        background: activeSubject === "All" ? "rgba(255,255,255,0.2)" : "#e5e5e5",
-                        color: activeSubject === "All" ? "#ffffff" : "#a3a3a3",
-                        fontFamily: "'JetBrains Mono', monospace",
-                      }}
-                    >
+                    <span className="font-mono-num" style={{
+                      marginLeft: 6, padding: "1px 5px", borderRadius: 5, fontSize: 10,
+                      background: activeSubject === "All" ? "rgba(0,0,0,0.2)" : MONO.elevated,
+                      color: activeSubject === "All" ? MONO.bg : MONO.muted,
+                    }}>
                       {notebooks.length}
                     </span>
                   </button>
-                  {subjects.map((s) => (
+                  {subjects.map(s => (
                     <button
                       key={s}
+                      className={`tp-filter-btn${activeSubject === s ? " active" : ""}`}
                       onClick={() => setActiveSubject(s)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 hover:scale-105"
-                      style={{
-                        background: activeSubject === s ? "#0a0a0a" : "#f5f5f5",
-                        color: activeSubject === s ? "#ffffff" : "#737373",
-                        border: `1px solid ${activeSubject === s ? "#0a0a0a" : "#e5e5e5"}`,
-                      }}
                     >
                       {s}
-                      <span
-                        className="ml-1.5 px-1.5 py-0.5 rounded text-xs"
-                        style={{
-                          background: activeSubject === s ? "rgba(255,255,255,0.2)" : "#e5e5e5",
-                          color: activeSubject === s ? "#ffffff" : "#a3a3a3",
-                          fontFamily: "'JetBrains Mono', monospace",
-                        }}
-                      >
-                        {notebooks.filter((n) => n.subject === s).length}
+                      <span className="font-mono-num" style={{
+                        marginLeft: 6, padding: "1px 5px", borderRadius: 5, fontSize: 10,
+                        background: activeSubject === s ? "rgba(0,0,0,0.2)" : MONO.elevated,
+                        color: activeSubject === s ? MONO.bg : MONO.muted,
+                      }}>
+                        {notebooks.filter(n => n.subject === s).length}
                       </span>
                     </button>
                   ))}
@@ -815,32 +836,26 @@ export default function TeacherProfilePage() {
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
                 {Array.from({ length: 4 }).map((_, i) => <NotebookSkeleton key={i} />)}
               </div>
             ) : filtered.length > 0 ? (
-              <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
                 {filtered.map((nb, i) => (
                   <NotebookCard key={nb.id} notebook={nb} teacherId={teacherId} index={i} />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-24">
-                <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                  style={{ background: "#f5f5f5", border: "1px solid #e5e5e5" }}
-                >
-                  <BookOpen size={24} style={{ color: "#a3a3a3" }} />
+              <div style={{ textAlign: "center", padding: "80px 0" }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 16, margin: "0 auto 20px",
+                  background: MONO.elevated, border: `1px solid ${MONO.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <BookOpen size={22} style={{ color: MONO.muted }} />
                 </div>
-                <p
-                  className="font-bold text-xl mb-2"
-                  style={{ color: "#0a0a0a", fontFamily: "'DM Serif Display', serif" }}
-                >
-                  No notebooks yet
-                </p>
-                <p className="text-sm" style={{ color: "#737373" }}>
-                  This teacher hasn't published any notebooks.
-                </p>
+                <p className="font-display" style={{ fontSize: 20, color: MONO.bright, margin: "0 0 8px" }}>No notebooks yet</p>
+                <p style={{ fontSize: 13, color: MONO.muted }}>This teacher hasn't published any notebooks.</p>
               </div>
             )}
           </div>

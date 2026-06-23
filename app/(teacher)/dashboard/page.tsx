@@ -146,7 +146,6 @@ function HeroIllustration() {
       delay: 0.5,
     });
 
-    // Floating elements animation
     const floating = svgRef.current.querySelectorAll('.float-element');
     floating.forEach((el, i) => {
       gsap.to(el, {
@@ -166,13 +165,6 @@ function HeroIllustration() {
           <stop offset="0%" stopColor="#1a1a1a" stopOpacity="0.08" />
           <stop offset="100%" stopColor="#1a1a1a" stopOpacity="0.02" />
         </linearGradient>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-          <feMerge>
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
       </defs>
       {/* Desk */}
       <rect className="draw-path" x="50" y="180" width="300" height="8" rx="4" fill="#1a1a1a" opacity="0.1" />
@@ -181,7 +173,7 @@ function HeroIllustration() {
       {/* Laptop */}
       <rect className="draw-path" x="140" y="130" width="120" height="80" rx="8" fill="url(#grad1)" stroke="#1a1a1a" strokeWidth="1.5" opacity="0.15" />
       <rect className="draw-path" x="150" y="140" width="100" height="60" rx="4" fill="white" opacity="0.8" />
-      {/* Screen content lines with typing animation */}
+      {/* Screen content lines */}
       <rect className="draw-path" x="160" y="150" width="60" height="4" rx="2" fill="#1a1a1a" opacity="0.1" />
       <rect className="draw-path" x="160" y="160" width="40" height="4" rx="2" fill="#1a1a1a" opacity="0.08" />
       <rect className="draw-path" x="160" y="170" width="50" height="4" rx="2" fill="#1a1a1a" opacity="0.06" />
@@ -199,9 +191,9 @@ function HeroIllustration() {
       <circle className="draw-path float-element" cx="100" cy="100" r="12" fill="none" stroke="#1a1a1a" strokeWidth="1.5" opacity="0.08" />
       <circle className="draw-path float-element" cx="300" cy="90" r="8" fill="none" stroke="#1a1a1a" strokeWidth="1.5" opacity="0.06" />
       <rect className="draw-path float-element" x="200" y="70" width="16" height="16" rx="4" fill="none" stroke="#1a1a1a" strokeWidth="1.5" opacity="0.07" transform="rotate(12 208 78)" />
-      {/* Check marks with glow */}
+      {/* Check mark — monochrome */}
       <circle className="draw-path" cx="340" cy="120" r="14" fill="none" stroke="#1a1a1a" strokeWidth="1.5" opacity="0.1" />
-      <path className="draw-path" d="M334 120 L338 124 L346 116" fill="none" stroke="#10b981" strokeWidth="2" opacity="0.6" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" />
+      <path className="draw-path" d="M334 120 L338 124 L346 116" fill="none" stroke="#1a1a1a" strokeWidth="2" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -212,7 +204,6 @@ function EmptyStateIllustration() {
   useGSAP(() => {
     if (!svgRef.current) return;
 
-    // Animate elements drawing in
     const paths = svgRef.current.querySelectorAll('rect, circle, path');
     gsap.from(paths, {
       scale: 0,
@@ -224,7 +215,6 @@ function EmptyStateIllustration() {
       delay: 0.2,
     });
 
-    // Continuous gentle float
     const floating = svgRef.current.querySelectorAll('.empty-float');
     floating.forEach((el, i) => {
       gsap.to(el, {
@@ -248,13 +238,13 @@ function EmptyStateIllustration() {
       <path className="empty-float" d="M90 35 L96 41 L110 27" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.2" strokeLinecap="round" strokeLinejoin="round" />
       <circle className="empty-float" cx="155" cy="45" r="8" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.1" />
       <path className="empty-float" d="M151 45 L154 48 L159 43" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.15" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Additional decorative elements */}
       <circle className="empty-float" cx="30" cy="50" r="4" fill="currentColor" opacity="0.08" />
       <circle className="empty-float" cx="170" cy="55" r="3" fill="currentColor" opacity="0.06" />
     </svg>
   );
 }
 
+// Monochrome sparkline — all lines render in black/gray
 function SparklineChart({ data, positive }: { data: number[]; positive: boolean | null }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
@@ -269,11 +259,13 @@ function SparklineChart({ data, positive }: { data: number[]; positive: boolean 
     return `${x},${y}`;
   }).join(' ');
 
-  const color = positive === true ? '#10b981' : positive === false ? '#ef4444' : '#f59e0b';
+  // B&W: positive = solid black, negative = dashed gray, neutral = mid-gray
+  const color = '#1a1a1a';
+  const strokeDash = positive === false ? '3,2' : 'none';
+  const opacity = positive === false ? 0.25 : positive === true ? 0.55 : 0.35;
 
   useGSAP(() => {
     if (!pathRef.current) return;
-
     gsap.from(pathRef.current, {
       attr: { d: `M0,20 L60,20` },
       duration: 1.2,
@@ -283,15 +275,17 @@ function SparklineChart({ data, positive }: { data: number[]; positive: boolean 
   }, { scope: svgRef, dependencies: [data] });
 
   return (
-    <svg ref={svgRef} viewBox="0 0 60 24" className="w-16 h-6 opacity-60">
+    <svg ref={svgRef} viewBox="0 0 60 24" className="w-16 h-6">
       <path
         ref={pathRef}
         d={`M${points}`}
         fill="none"
         stroke={color}
         strokeWidth="2"
+        strokeDasharray={strokeDash}
         strokeLinecap="round"
         strokeLinejoin="round"
+        opacity={opacity}
       />
     </svg>
   );
@@ -359,54 +353,44 @@ function AnimatedCounter({ value, duration = 1.5 }: { value: string; duration?: 
   return <span ref={ref}>{value === "—" ? "—" : "0"}</span>;
 }
 
+// Monochrome pulse dot — dark gray instead of emerald
 function PulseDot() {
   return (
     <span className="relative flex h-2.5 w-2.5">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black/40 opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-black/70"></span>
     </span>
   );
 }
 
-function MagneticButton({ 
-  children, 
-  className, 
-  onClick, 
-  href 
-}: { 
-  children: React.ReactNode; 
-  className?: string; 
+function MagneticButton({
+  children,
+  className,
+  onClick,
+  href
+}: {
+  children: React.ReactNode;
+  className?: string;
   onClick?: () => void;
   href?: string;
 }) {
   const linkRef = useRef<HTMLAnchorElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const handleMouseMove = (e: React.MouseEvent) => {
     const el = href ? linkRef.current : btnRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    
-    gsap.to(el, {
-      x: x * 0.2,
-      y: y * 0.2,
-      duration: 0.3,
-      ease: "power2.out",
-    });
+    gsap.to(el, { x: x * 0.2, y: y * 0.2, duration: 0.3, ease: "power2.out" });
   };
-  
+
   const handleMouseLeave = () => {
     const el = href ? linkRef.current : btnRef.current;
     if (!el) return;
-    gsap.to(el, {
-      x: 0,
-      y: 0,
-      duration: 0.5,
-      ease: "elastic.out(1, 0.3)",
-    });
+    gsap.to(el, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1, 0.3)" });
     setIsHovered(false);
   };
 
@@ -418,25 +402,11 @@ function MagneticButton({
   };
 
   if (href) {
-    return (
-      <Link 
-        ref={linkRef}
-        href={href}
-        {...sharedProps}
-      >
-        {children}
-      </Link>
-    );
+    return <Link ref={linkRef} href={href} {...sharedProps}>{children}</Link>;
   }
 
   return (
-    <button
-      ref={btnRef}
-      onClick={onClick}
-      {...sharedProps}
-    >
-      {children}
-    </button>
+    <button ref={btnRef} onClick={onClick} {...sharedProps}>{children}</button>
   );
 }
 
@@ -456,7 +426,7 @@ function SkeletonLoader({ index }: { index: number }) {
 
   return (
     <div ref={ref} className="h-[80px] rounded-2xl bg-white border border-black/[0.07] overflow-hidden relative group">
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/[0.04] to-transparent animate-shimmer" 
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/[0.04] to-transparent animate-shimmer"
            style={{ backgroundSize: "200% 100%" }} />
       <div className="absolute inset-0 flex items-center px-6 gap-4">
         <div className="w-10 h-10 rounded-xl bg-black/5 animate-pulse" />
@@ -470,8 +440,8 @@ function SkeletonLoader({ index }: { index: number }) {
   );
 }
 
-function ScrollReveal({ children, className, delay = 0 }: { 
-  children: React.ReactNode; 
+function ScrollReveal({ children, className, delay = 0 }: {
+  children: React.ReactNode;
   className?: string;
   delay?: number;
 }) {
@@ -584,7 +554,6 @@ export default function TeacherDashboard() {
   useGSAP(() => {
     if (reducedMotion) return;
 
-    // Header slide down with blur
     gsap.from(headerRef.current, {
       y: -40,
       opacity: 0,
@@ -592,43 +561,15 @@ export default function TeacherDashboard() {
       ease: "power3.out",
     });
 
-    // Greeting text reveal with sophisticated stagger
     const greetingTl = gsap.timeline({ delay: 0.4 });
-    greetingTl.from(".greeting-label", {
-      y: 20,
-      opacity: 0,
-      duration: 0.6,
-      ease: "power3.out",
-    })
-    .from(".greeting-title", {
-      y: 40,
-      opacity: 0,
-      duration: 1,
-      ease: "power3.out",
-    }, "-=0.3")
-    .from(".greeting-subtitle", {
-      y: 20,
-      opacity: 0,
-      duration: 0.6,
-      ease: "power2.out",
-    }, "-=0.5")
-    .from(".hero-illustration", {
-      scale: 0.7,
-      opacity: 0,
-      duration: 1.2,
-      ease: "elastic.out(1, 0.5)",
-    }, "-=0.8")
-    .from(".action-buttons", {
-      y: 20,
-      opacity: 0,
-      duration: 0.6,
-      stagger: 0.1,
-      ease: "back.out(1.7)",
-    }, "-=0.4");
+    greetingTl.from(".greeting-label", { y: 20, opacity: 0, duration: 0.6, ease: "power3.out" })
+      .from(".greeting-title", { y: 40, opacity: 0, duration: 1, ease: "power3.out" }, "-=0.3")
+      .from(".greeting-subtitle", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.5")
+      .from(".hero-illustration", { scale: 0.7, opacity: 0, duration: 1.2, ease: "elastic.out(1, 0.5)" }, "-=0.8")
+      .from(".action-buttons", { y: 20, opacity: 0, duration: 0.6, stagger: 0.1, ease: "back.out(1.7)" }, "-=0.4");
 
   }, { scope: containerRef, dependencies: [reducedMotion] });
 
-  // Stats cards stagger with 3D tilt effect
   useGSAP(() => {
     if (reducedMotion || !statsRef.current) return;
     gsap.from(".stat-card", {
@@ -646,7 +587,6 @@ export default function TeacherDashboard() {
     });
   }, { scope: containerRef, dependencies: [notebooks.length, reducedMotion] });
 
-  // Content sections reveal
   useGSAP(() => {
     if (reducedMotion || !contentRef.current) return;
     gsap.from(".content-section", {
@@ -663,7 +603,6 @@ export default function TeacherDashboard() {
     });
   }, { scope: containerRef, dependencies: [notebooks.length, loading, reducedMotion] });
 
-  // Notebook rows stagger with slide
   useGSAP(() => {
     if (reducedMotion || !listRef.current || loading) return;
     gsap.from(".notebook-row-item", {
@@ -675,34 +614,19 @@ export default function TeacherDashboard() {
     });
   }, { scope: containerRef, dependencies: [filter, loading, reducedMotion] });
 
-  // Toast animation
   useGSAP(() => {
     if (!toast || !toastRef.current) return;
     const tl = gsap.timeline();
-    tl.from(toastRef.current, {
-      y: -20,
-      opacity: 0,
-      scale: 0.9,
-      duration: 0.4,
-      ease: "back.out(1.7)",
-    })
-    .to(toastRef.current, {
-      y: -20,
-      opacity: 0,
-      scale: 0.9,
-      duration: 0.3,
-      delay: 2.5,
-      ease: "power2.in",
-      onComplete: () => setToast(null),
-    });
+    tl.from(toastRef.current, { y: -20, opacity: 0, scale: 0.9, duration: 0.4, ease: "back.out(1.7)" })
+      .to(toastRef.current, {
+        y: -20, opacity: 0, scale: 0.9, duration: 0.3, delay: 2.5,
+        ease: "power2.in", onComplete: () => setToast(null),
+      });
   }, { dependencies: [toast] });
 
   // ─── Filter change animation ────────────────────────────────────────────────
   const handleFilterChange = useCallback((f: "all" | "published" | "draft") => {
-    if (reducedMotion) {
-      setFilter(f);
-      return;
-    }
+    if (reducedMotion) { setFilter(f); return; }
     if (listRef.current) {
       gsap.to(".notebook-row-item", {
         opacity: 0,
@@ -717,7 +641,7 @@ export default function TeacherDashboard() {
     }
   }, [reducedMotion]);
 
-  // ─── 3D Tilt Effect for Stat Cards ──────────────────────────────────────────
+  // ─── 3D Tilt Effect ──────────────────────────────────────────────────────────
   const handleStatMouseMove = (e: React.MouseEvent<HTMLDivElement>, index: number) => {
     if (reducedMotion) return;
     const card = e.currentTarget;
@@ -728,25 +652,13 @@ export default function TeacherDashboard() {
     const centerY = rect.height / 2;
     const rotateX = (y - centerY) / 10;
     const rotateY = (centerX - x) / 10;
-
-    gsap.to(card, {
-      rotateX,
-      rotateY,
-      transformPerspective: 1000,
-      duration: 0.3,
-      ease: "power2.out",
-    });
+    gsap.to(card, { rotateX, rotateY, transformPerspective: 1000, duration: 0.3, ease: "power2.out" });
     setHoveredStat(index);
   };
 
   const handleStatMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
     if (reducedMotion) return;
-    gsap.to(e.currentTarget, {
-      rotateX: 0,
-      rotateY: 0,
-      duration: 0.6,
-      ease: "elastic.out(1, 0.5)",
-    });
+    gsap.to(e.currentTarget, { rotateX: 0, rotateY: 0, duration: 0.6, ease: "elastic.out(1, 0.5)" });
     setHoveredStat(null);
   };
 
@@ -767,34 +679,10 @@ export default function TeacherDashboard() {
     : "—";
 
   const stats: StatTrend[] = [
-    { 
-      label: "Total notebooks", 
-      value: String(notebooks.length), 
-      delta: "+2 this month", 
-      positive: true,
-      sparklineData: generateSparklineData(12, 4),
-    },
-    { 
-      label: "Total students", 
-      value: totalStudents.toLocaleString(), 
-      delta: "+48 this week", 
-      positive: true,
-      sparklineData: generateSparklineData(150, 30),
-    },
-    { 
-      label: "Total views", 
-      value: totalViews.toLocaleString(), 
-      delta: "-3% vs last month", 
-      positive: false,
-      sparklineData: generateSparklineData(2500, 500),
-    },
-    { 
-      label: "Avg rating", 
-      value: avgRating, 
-      delta: "Top 5% of teachers", 
-      positive: null,
-      sparklineData: generateSparklineData(4.5, 0.5),
-    },
+    { label: "Total notebooks", value: String(notebooks.length), delta: "+2 this month", positive: true, sparklineData: generateSparklineData(12, 4) },
+    { label: "Total students", value: totalStudents.toLocaleString(), delta: "+48 this week", positive: true, sparklineData: generateSparklineData(150, 30) },
+    { label: "Total views", value: totalViews.toLocaleString(), delta: "-3% vs last month", positive: false, sparklineData: generateSparklineData(2500, 500) },
+    { label: "Avg rating", value: avgRating, delta: "Top 5% of teachers", positive: null, sparklineData: generateSparklineData(4.5, 0.5) },
   ];
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -802,13 +690,14 @@ export default function TeacherDashboard() {
     <div ref={containerRef} className="min-h-screen bg-[#F7F7F6] relative overflow-hidden">
       <FloatingShapes />
 
-      {/* Toast Notification */}
+      {/* Toast — monochrome, no colored icons */}
       {toast && (
-        <div 
+        <div
           ref={toastRef}
           className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl bg-black text-white text-sm font-medium shadow-lg shadow-black/20 flex items-center gap-2"
         >
-          {toast.type === 'success' ? <Check size={16} className="text-emerald-400" /> : <Sparkles size={16} className="text-amber-400" />}
+          {/* B&W: both success and info use a simple check/dot icon in white */}
+          <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
           {toast.message}
         </div>
       )}
@@ -825,7 +714,7 @@ export default function TeacherDashboard() {
           <span className="font-semibold text-sm text-black tracking-tight">TeacherOS</span>
         </div>
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => setReducedMotion(!reducedMotion)}
             className="hidden sm:flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-black/5 transition-all duration-300 text-black/30 hover:text-black/60"
             title={reducedMotion ? "Enable animations" : "Reduce motion"}
@@ -835,11 +724,12 @@ export default function TeacherDashboard() {
           <button className="relative p-2 rounded-xl hover:bg-black/5 transition-all duration-300 hover:scale-105 active:scale-95">
             <Bell size={16} className="text-black/40" />
             {pendingReviews.length > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              /* B&W: was red-500, now black */
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-black rounded-full animate-pulse" />
             )}
           </button>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-black/10 bg-black/[0.02] hover:bg-black/[0.04] transition-all duration-300 cursor-pointer hover:border-black/20">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0 transition-transform duration-300 hover:scale-110">
+            <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0">
               {getInitials(user?.name)}
             </div>
             <span className="hidden sm:block text-xs text-black/55 max-w-[120px] truncate">{user?.name ?? user?.email ?? "—"}</span>
@@ -867,30 +757,32 @@ export default function TeacherDashboard() {
               {getGreeting()}{firstName ? `, ${firstName}` : ""} <span className="inline-block animate-wave">👋</span>
             </h1>
             <p className="greeting-subtitle mt-3 text-sm text-black/40 max-w-md leading-relaxed">
-              Welcome back! You have <span className="font-semibold text-black/60">{pendingReviews.length} pending reviews</span> and <span className="font-semibold text-black/60">{notebooks.filter(n => !n.published).length} drafts</span> waiting to be published.
+              Welcome back! You have{" "}
+              <span className="font-semibold text-black/60">{pendingReviews.length} pending reviews</span> and{" "}
+              <span className="font-semibold text-black/60">{notebooks.filter(n => !n.published).length} drafts</span> waiting to be published.
             </p>
             <div className="action-buttons mt-6 flex items-center gap-3 flex-wrap">
-              <MagneticButton 
+              <MagneticButton
                 href="/notebooks/new"
                 className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-black text-white text-sm font-semibold hover:bg-black/80 transition-all duration-300 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5 active:translate-y-0"
               >
-                <Plus size={15} className="transition-transform duration-300 group-hover:rotate-90" /> 
+                <Plus size={15} className="transition-transform duration-300 group-hover:rotate-90" />
                 New notebook
               </MagneticButton>
-              <MagneticButton 
+              {/* <MagneticButton
                 href="/students"
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-black/10 text-sm font-medium text-black/60 hover:bg-black/5 transition-all duration-300 hover:border-black/20"
               >
                 <GraduationCap size={15} />
                 View students
               </MagneticButton>
-              <MagneticButton 
+              <MagneticButton
                 onClick={() => showToast('Quick action menu coming soon!', 'info')}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-black/10 text-sm font-medium text-black/60 hover:bg-black/5 transition-all duration-300 hover:border-black/20"
               >
                 <Zap size={15} />
                 Quick actions
-              </MagneticButton>
+              </MagneticButton> */}
             </div>
           </div>
           <div className="hero-illustration hidden lg:block flex-shrink-0">
@@ -904,30 +796,23 @@ export default function TeacherDashboard() {
           </div>
         )}
 
-        {!bannerDismissed && pendingReviews.length > 0 && (
+        {/* {!bannerDismissed && pendingReviews.length > 0 && (
           <div className="mb-6 action-banner">
             <ActionBanner count={pendingReviews.length} onDismiss={() => {
-              if (reducedMotion) {
-                setBannerDismissed(true);
-                return;
-              }
+              if (reducedMotion) { setBannerDismissed(true); return; }
               gsap.to(".action-banner", {
-                height: 0,
-                opacity: 0,
-                marginBottom: 0,
-                duration: 0.4,
-                ease: "power2.inOut",
-                onComplete: () => setBannerDismissed(true),
+                height: 0, opacity: 0, marginBottom: 0, duration: 0.4,
+                ease: "power2.inOut", onComplete: () => setBannerDismissed(true),
               });
             }} />
           </div>
-        )}
+        )} */}
 
         {/* Stats Grid */}
         <div ref={statsRef} className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
           {stats.map((s, i) => (
-            <div 
-              key={s.label} 
+            <div
+              key={s.label}
               className="stat-card group relative bg-white rounded-2xl border border-black/[0.07] p-5 hover:shadow-xl hover:shadow-black/5 hover:border-black/10 transition-all duration-500 cursor-default"
               style={{ transformStyle: 'preserve-3d' }}
               onMouseMove={(e) => handleStatMouseMove(e, i)}
@@ -951,18 +836,28 @@ export default function TeacherDashboard() {
                 <SparklineChart data={s.sparklineData} positive={s.positive} />
               </div>
               <div className="flex items-center gap-1">
-                {s.positive === true && <TrendingUp size={12} className="text-emerald-500" />}
-                {s.positive === false && <TrendingDown size={12} className="text-red-400" />}
-                {s.positive === null && <Award size={12} className="text-amber-500" />}
+                {/* B&W trend indicators — replaced colored icons with monochrome */}
+                {s.positive === true && (
+                  <TrendingUp size={12} className="text-black/50" />
+                )}
+                {s.positive === false && (
+                  <TrendingDown size={12} className="text-black/30" />
+                )}
+                {s.positive === null && (
+                  <Minus size={12} className="text-black/40" />
+                )}
                 <span className={`text-[11px] font-medium ${
-                  s.positive === true ? "text-emerald-600" : 
-                  s.positive === false ? "text-red-500" : "text-amber-600"
+                  s.positive === true
+                    ? "text-black/60"
+                    : s.positive === false
+                    ? "text-black/35"
+                    : "text-black/50"
                 }`}>
                   {s.delta}
                 </span>
               </div>
-              {/* Hover glow effect */}
-              <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br from-black/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
+              {/* Hover glow */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-black/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
               {/* Corner accent */}
               <div className="absolute top-0 right-0 w-16 h-16 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none overflow-hidden rounded-tr-2xl">
                 <div className="absolute -top-8 -right-8 w-16 h-16 bg-black/[0.02] rotate-45" />
@@ -971,38 +866,29 @@ export default function TeacherDashboard() {
           ))}
         </div>
 
-        {!tipDismissed && notebooks.length > 0 && (
+        {/* {!tipDismissed && notebooks.length > 0 && (
           <div className="mb-8 tip-banner">
             <TipBanner onDismiss={() => {
-              if (reducedMotion) {
-                setTipDismissed(true);
-                return;
-              }
+              if (reducedMotion) { setTipDismissed(true); return; }
               gsap.to(".tip-banner", {
-                height: 0,
-                opacity: 0,
-                marginBottom: 0,
-                duration: 0.4,
-                ease: "power2.inOut",
-                onComplete: () => setTipDismissed(true),
+                height: 0, opacity: 0, marginBottom: 0, duration: 0.4,
+                ease: "power2.inOut", onComplete: () => setTipDismissed(true),
               });
             }} />
           </div>
-        )}
+        )} */}
 
-        {!loading && notebooks.length > 0 && (
+        {/* {!loading && notebooks.length > 0 && (
           <div ref={contentRef} className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-10">
-            <div className="content-section">
-              <ActivityFeed items={activity} />
-            </div>
+            <div className="content-section"><ActivityFeed items={activity} /></div>
             <div className="flex flex-col gap-5 content-section">
               <TopNotebooks notebooks={notebooks} />
               <PendingReviews reviews={pendingReviews} />
             </div>
           </div>
-        )}
+        )} */}
 
-        {/* Notebooks list */}
+        Notebooks list
         <div ref={listRef}>
           <ScrollReveal>
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -1014,18 +900,19 @@ export default function TeacherDashboard() {
               </div>
               <div className="flex items-center gap-2 p-1 rounded-xl bg-black/[0.03]">
                 {(["all", "published", "draft"] as const).map((f) => (
-                  <button 
-                    key={f} 
+                  <button
+                    key={f}
                     onClick={() => handleFilterChange(f)}
                     className={`relative px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all duration-300 ${
-                      filter === f 
-                        ? "bg-black text-white shadow-md shadow-black/10 scale-105" 
+                      filter === f
+                        ? "bg-black text-white shadow-md shadow-black/10 scale-105"
                         : "text-black/40 hover:text-black/60 hover:bg-black/5"
                     }`}
                   >
                     {f}
                     {f === "draft" && notebooks.filter(n => !n.published).length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold animate-bounce">
+                      /* B&W: was red-500, now solid black badge */
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-black text-white text-[9px] rounded-full flex items-center justify-center font-bold">
                         {notebooks.filter(n => !n.published).length}
                       </span>
                     )}
@@ -1037,15 +924,13 @@ export default function TeacherDashboard() {
 
           {loading ? (
             <div className="flex flex-col gap-3">
-              {[1,2,3].map((i) => (
-                <SkeletonLoader key={i} index={i} />
-              ))}
+              {[1, 2, 3].map((i) => <SkeletonLoader key={i} index={i} />)}
             </div>
           ) : (
             <div className="flex flex-col gap-2.5">
               {filtered.map((nb, index) => (
-                <div 
-                  key={nb.id} 
+                <div
+                  key={nb.id}
                   className="notebook-row-item"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
@@ -1058,11 +943,7 @@ export default function TeacherDashboard() {
                         return;
                       }
                       gsap.to(`[data-notebook-id="${id}"]`, {
-                        x: 100,
-                        opacity: 0,
-                        height: 0,
-                        marginBottom: 0,
-                        duration: 0.4,
+                        x: 100, opacity: 0, height: 0, marginBottom: 0, duration: 0.4,
                         ease: "power2.in",
                         onComplete: () => setNotebooks((prev) => prev.filter((n) => n.id !== id)),
                       });
@@ -1079,8 +960,10 @@ export default function TeacherDashboard() {
                   <div className="text-center py-20 rounded-3xl border-2 border-dashed border-black/10 bg-white/50 backdrop-blur-sm">
                     <EmptyStateIllustration />
                     <p className="font-bold text-lg text-black mb-2">No notebooks yet</p>
-                    <p className="text-sm text-black/40 mb-6 max-w-xs mx-auto">Create your first notebook to start sharing knowledge with your students</p>
-                    <MagneticButton 
+                    <p className="text-sm text-black/40 mb-6 max-w-xs mx-auto">
+                      Create your first notebook to start sharing knowledge with your students
+                    </p>
+                    <MagneticButton
                       href="/notebooks/new"
                       className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold bg-black text-white hover:bg-black/80 transition-all duration-300 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5"
                     >
@@ -1103,12 +986,12 @@ export default function TeacherDashboard() {
           { icon: MessageSquare, label: "Messages", href: "/messages" },
           { icon: Settings, label: "Settings", href: "/settings" },
         ].map(({ icon: Icon, label, href, active }) => (
-          <Link 
-            key={label} 
+          <Link
+            key={label}
             href={href}
             className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-[10px] font-medium transition-all duration-300 ${
-              active 
-                ? "text-black bg-black/5 scale-105" 
+              active
+                ? "text-black bg-black/5 scale-105"
                 : "text-black/30 hover:text-black/55 hover:bg-black/[0.02]"
             }`}
           >
@@ -1152,10 +1035,8 @@ export default function TeacherDashboard() {
         .animate-shimmer { animation: shimmer 2s infinite; }
         .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
 
-        /* Smooth scrolling */
         html { scroll-behavior: smooth; }
 
-        /* Custom scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }

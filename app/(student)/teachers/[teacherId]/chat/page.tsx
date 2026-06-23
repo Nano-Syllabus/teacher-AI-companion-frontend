@@ -45,76 +45,159 @@ interface ChatResponse {
   }>;
 }
 
-// Subject accent colors (kept as CSS variables since Tailwind can't dynamic-generate these)
-const SUBJECT_STYLES: Record<string, { accent: string; glow: string; chipBg: string; chipText: string }> = {
-  Mathematics:        { accent: "#f59e0b", glow: "rgba(245,158,11,0.15)",  chipBg: "rgba(245,158,11,0.08)",  chipText: "#f59e0b" },
-  Physics:            { accent: "#f87171", glow: "rgba(248,113,113,0.15)", chipBg: "rgba(248,113,113,0.08)", chipText: "#f87171" },
-  Chemistry:          { accent: "#a855f7", glow: "rgba(168,85,247,0.15)",  chipBg: "rgba(168,85,247,0.08)",  chipText: "#a855f7" },
-  Biology:            { accent: "#22c55e", glow: "rgba(34,197,94,0.15)",   chipBg: "rgba(34,197,94,0.08)",   chipText: "#22c55e" },
-  "Computer Science": { accent: "#0ea5e9", glow: "rgba(14,165,233,0.15)",  chipBg: "rgba(14,165,233,0.08)",  chipText: "#0ea5e9" },
-  Economics:          { accent: "#06b6d4", glow: "rgba(6,182,212,0.15)",   chipBg: "rgba(6,182,212,0.08)",   chipText: "#06b6d4" },
-  History:            { accent: "#ec4899", glow: "rgba(236,72,153,0.15)",  chipBg: "rgba(236,72,153,0.08)",  chipText: "#ec4899" },
-  Literature:         { accent: "#8b5cf6", glow: "rgba(139,92,246,0.15)",  chipBg: "rgba(139,92,246,0.08)",  chipText: "#8b5cf6" },
+// ── B&W monochrome palette — no hues, only luminance steps ──
+const MONO = {
+  bg:        "#0a0a0a",   // near-black canvas
+  surface:   "#111111",   // card / sidebar surface
+  elevated:  "#1a1a1a",   // dropdown, hover states
+  border:    "#242424",   // subtle dividers
+  borderMid: "#333333",   // mid-weight borders
+  muted:     "#555555",   // disabled / placeholder
+  secondary: "#888888",   // metadata text
+  primary:   "#cccccc",   // body text
+  bright:    "#ffffff",   // headings / icons
+  accent:    "#ffffff",   // interactive accent (pure white)
+  accentDim: "rgba(255,255,255,0.08)", // chip background
 };
-const DEFAULT_STYLE = { accent: "", glow: "", chipBg: "black", chipText: "" };
-function subjectStyle(s: string) { return SUBJECT_STYLES[s] ?? DEFAULT_STYLE; }
 
-const SUGGESTED_PROMPTS: Record<string, { label: string; sub: string }[]> = {
-  Mathematics:        [{ label: "Solve a problem", sub: "Step-by-step solution" }, { label: "Explain a concept", sub: "Clear definition" }, { label: "Practice questions", sub: "Test my knowledge" }],
-  Physics:            [{ label: "Derive a formula", sub: "Show the working" }, { label: "Real-world examples", sub: "Applied physics" }, { label: "Numericals", sub: "Practice problems" }],
-  "Computer Science": [{ label: "Explain an algorithm", sub: "With complexity" }, { label: "Debug my logic", sub: "Find the error" }, { label: "Code examples", sub: "Show in code" }],
-};
+// All subjects share the same monochrome identity
+function subjectStyle(_s: string) {
+  return {
+    accent:   MONO.accent,
+    glow:     "rgba(255,255,255,0.035)",
+    chipBg:   MONO.accentDim,
+    chipText: MONO.bright,
+  };
+}
+
 const DEFAULT_PROMPTS = [
   { label: "Key concepts",   sub: "Overview of this chapter" },
   { label: "Explain simply", sub: "Like I'm new to this" },
   { label: "Practice quiz",  sub: "Test my knowledge" },
 ];
+
+const SUGGESTED_PROMPTS: Record<string, { label: string; sub: string }[]> = {
+  Mathematics:        [{ label: "Solve a problem", sub: "Step-by-step" }, { label: "Explain a concept", sub: "Clear definition" }, { label: "Practice questions", sub: "Test my knowledge" }],
+  Physics:            [{ label: "Derive a formula", sub: "Show the working" }, { label: "Real-world examples", sub: "Applied physics" }, { label: "Numericals", sub: "Practice problems" }],
+  "Computer Science": [{ label: "Explain an algorithm", sub: "With complexity" }, { label: "Debug my logic", sub: "Find the error" }, { label: "Code examples", sub: "Show in code" }],
+};
 function getSuggestedPrompts(subject: string) { return SUGGESTED_PROMPTS[subject] ?? DEFAULT_PROMPTS; }
 
-// ── global CSS (only animations & pseudo-element effects not expressible in Tailwind) ──
+// ── global CSS ─────────────────────────────────────────────────────────────
 const GLOBAL_CSS = `
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideRight {
-  from { opacity: 0; transform: translateX(18px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes pulse3 {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
-  40%           { opacity: 1;   transform: scale(1); }
-}
-@keyframes cursorBlink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
-.anim-slideUp    { animation: slideUp    0.34s cubic-bezier(0.22,1,0.36,1) both; }
-.anim-slideRight { animation: slideRight 0.28s cubic-bezier(0.22,1,0.36,1) both; }
-.anim-fadeIn     { animation: fadeIn     0.24s ease both; }
-.hover-actions   { opacity: 0; transition: opacity 0.18s ease; }
-.bubble-group:hover .hover-actions { opacity: 1; }
-.dot-pulse span {
-  display: inline-block;
-  width: 5px; height: 5px; border-radius: 50%;
-  background: currentColor; margin: 0 2px;
-  animation: pulse3 1.3s infinite ease-in-out;
-}
-.dot-pulse span:nth-child(2) { animation-delay: 0.16s; }
-.dot-pulse span:nth-child(3) { animation-delay: 0.32s; }
-.stream-cursor::after {
-  content: '▋';
-  display: inline;
-  margin-left: 1px;
-  animation: cursorBlink 0.7s step-end infinite;
-  font-size: 0.82em;
-  vertical-align: text-bottom;
-  opacity: 0.65;
-}
+  /* ── GSAP will drive most motion; these are fallback/utility classes ── */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { box-sizing: border-box; }
+
+  .ns-root {
+    font-family: 'Inter', sans-serif;
+    background: ${MONO.bg};
+    color: ${MONO.primary};
+    --accent: ${MONO.accent};
+    --border: ${MONO.border};
+  }
+
+  /* scrollbar */
+  .ns-scroll::-webkit-scrollbar { width: 4px; }
+  .ns-scroll::-webkit-scrollbar-track { background: transparent; }
+  .ns-scroll::-webkit-scrollbar-thumb { background: ${MONO.border}; border-radius: 2px; }
+
+  /* noise grain overlay */
+  .ns-root::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.18;
+  }
+
+  /* orb glow */
+  .ns-orb {
+    position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 320px; border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 60%, rgba(255,255,255,0.055) 0%, transparent 68%);
+    filter: blur(48px); pointer-events: none; z-index: 0;
+  }
+
+  /* sidebar icon hover ring */
+  .ns-nav-btn {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: ${MONO.muted}; background: transparent;
+    transition: background 0.15s, color 0.15s; cursor: pointer;
+    text-decoration: none;
+  }
+  .ns-nav-btn:hover, .ns-nav-btn.active {
+    background: ${MONO.elevated}; color: ${MONO.bright};
+  }
+
+  /* thinking dots */
+  @keyframes dotPulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.65); }
+    40%           { opacity: 1;   transform: scale(1); }
+  }
+  .dot-pulse span {
+    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+    background: ${MONO.secondary}; margin: 0 2.5px;
+    animation: dotPulse 1.4s infinite ease-in-out;
+  }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.18s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.36s; }
+
+  /* streaming cursor */
+  @keyframes cursorBlink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+  .stream-cursor::after {
+    content: '▋'; display: inline; margin-left: 1px;
+    animation: cursorBlink 0.65s step-end infinite;
+    font-size: 0.8em; vertical-align: text-bottom; opacity: 0.5;
+  }
+
+  /* hover action reveal */
+  .bubble-group .hover-actions { opacity: 0; transition: opacity 0.18s; }
+  .bubble-group:hover .hover-actions { opacity: 1; }
+
+  /* input focus ring */
+  .ns-input-box:focus-within {
+    border-color: ${MONO.borderMid} !important;
+    box-shadow: 0 0 0 1px ${MONO.borderMid};
+  }
+
+  /* chip hover */
+  .ns-chip {
+    background: transparent; border: 1px solid ${MONO.border};
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer; text-align: left;
+  }
+  .ns-chip:hover {
+    background: ${MONO.elevated}; border-color: ${MONO.borderMid};
+  }
+
+  /* send button */
+  .ns-send {
+    transition: opacity 0.18s, transform 0.12s;
+  }
+  .ns-send:hover:not(:disabled) { transform: scale(1.06); }
+  .ns-send:active:not(:disabled) { transform: scale(0.94); }
+
+  /* monospace in response */
+  .md-code {
+    font-family: 'JetBrains Mono', monospace;
+    background: ${MONO.elevated}; border: 1px solid ${MONO.border};
+    border-radius: 4px; padding: 0 5px; font-size: 0.82em; color: ${MONO.bright};
+  }
+
+  /* divider line with text */
+  .ns-divider {
+    display: flex; align-items: center; gap: 10px;
+    color: ${MONO.muted}; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    margin: 24px 0 16px;
+  }
+  .ns-divider::before, .ns-divider::after {
+    content: ''; flex: 1; height: 1px; background: ${MONO.border};
+  }
 `;
 
 function InjectCSS() {
@@ -124,66 +207,100 @@ function InjectCSS() {
     el.id = "ns-chat-css";
     el.textContent = GLOBAL_CSS;
     document.head.appendChild(el);
+
+    // Inject GSAP from CDN
+    if (!document.getElementById("gsap-cdn")) {
+      const s = document.createElement("script");
+      s.id = "gsap-cdn";
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js";
+      document.head.appendChild(s);
+    }
   }, []);
   return null;
 }
 
-// ── orb background ─────────────────────────────────────────────────────────
-function OrbBg({ color }: { color: string }) {
-  return (
-    <div
-      className="absolute top-0 left-1/2 -translate-x-1/2 w-[520px] h-[340px] rounded-full pointer-events-none z-0"
-      style={{ background: `radial-gradient(ellipse at 50% 40%, ${color} 0%, transparent 70%)`, filter: "blur(72px)", opacity: 0.5 }}
-    />
+// ── GSAP helpers ───────────────────────────────────────────────────────────
+function gsapFadeUp(el: Element | null, delay = 0) {
+  if (!el) return;
+  const g = (window as any).gsap;
+  if (!g) return;
+  g.fromTo(el,
+    { opacity: 0, y: 16 },
+    { opacity: 1, y: 0, duration: 0.42, delay, ease: "power3.out" }
   );
 }
+function gsapSlideRight(el: Element | null, delay = 0) {
+  if (!el) return;
+  const g = (window as any).gsap;
+  if (!g) return;
+  g.fromTo(el,
+    { opacity: 0, x: 20 },
+    { opacity: 1, x: 0, duration: 0.32, delay, ease: "power2.out" }
+  );
+}
+function gsapStagger(els: NodeListOf<Element> | null, fromVars: object, toVars: object, stagger = 0.07) {
+  if (!els || !els.length) return;
+  const g = (window as any).gsap;
+  if (!g) return;
+  g.fromTo(els, fromVars, { ...toVars, stagger });
+}
 
-// ── sidebar ────────────────────────────────────────────────────────────────
-function Sidebar({ teacherId, accentColor }: { teacherId: string; accentColor: string }) {
-  const nav = [
-    { icon: Home,       href: `/teachers/${teacherId}`, label: "Home" },
-    { icon: BookMarked, href: "#", label: "Notebooks", active: true },
-    { icon: Mail,       href: "#", label: "Messages" },
-    { icon: LayoutGrid, href: "#", label: "Overview" },
-  ];
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function Sidebar({ teacherId }: { teacherId: string }) {
+  const sideRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const g = (window as any).gsap;
+      if (!g || !sideRef.current) return;
+      const items = sideRef.current.querySelectorAll(".ns-nav-btn");
+      g.fromTo(items,
+        { opacity: 0, x: -14 },
+        { opacity: 1, x: 0, duration: 0.38, stagger: 0.07, ease: "power2.out" }
+      );
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="w-[60px] bg-white border-r border-gray-100 flex flex-col items-center pt-4 pb-4 flex-shrink-0 z-10">
+    <div
+      ref={sideRef}
+      style={{
+        width: 58, background: MONO.surface,
+        borderRight: `1px solid ${MONO.border}`,
+        display: "flex", flexDirection: "column", alignItems: "center",
+        paddingTop: 16, paddingBottom: 16, flexShrink: 0, zIndex: 10,
+      }}
+    >
       {/* Logo mark */}
-      <div
-        className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center mb-7"
-        style={{ background: accentColor }}
-      >
-        <ArrowLeft size={14} color="#fff" className="rotate-[135deg]" />
+      <div style={{
+        width: 32, height: 32, borderRadius: 10, marginBottom: 28,
+        background: MONO.bright, display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <ArrowLeft size={13} color={MONO.bg} style={{ transform: "rotate(135deg)" }} />
       </div>
 
-      {/* Main nav */}
-      <div className="flex flex-col gap-1 flex-1">
-        {nav.map(({ icon: Icon, href, label, active }) => (
-          <Link
-            key={label}
-            href={href}
-            title={label}
-            className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-all duration-150
-              ${active
-                ? "bg-gray-100 text-gray-700"
-                : "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
-              }`}
+      {/* Nav */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+        {[
+          { icon: Home,       href: `/teachers/${teacherId}`, label: "Home" },
+          { icon: BookMarked, href: "#", label: "Notebooks", active: true },
+          { icon: Mail,       href: "#", label: "Messages" },
+          { icon: LayoutGrid, href: "#", label: "Overview" },
+        ].map(({ icon: Icon, href, label, active }) => (
+          <Link key={label} href={href} title={label}
+            className={`ns-nav-btn${active ? " active" : ""}`}
           >
-            <Icon size={17} />
+            <Icon size={16} />
           </Link>
         ))}
       </div>
 
-      {/* Bottom nav */}
-      <div className="flex flex-col gap-1">
+      {/* Bottom */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {[{ icon: Settings, label: "Settings" }, { icon: Users, label: "Students" }].map(({ icon: Icon, label }) => (
-          <Link
-            key={label}
-            href="#"
-            title={label}
-            className="w-10 h-10 rounded-[10px] flex items-center justify-center text-gray-300 hover:bg-gray-50 hover:text-gray-400 transition-colors"
-          >
-            <Icon size={17} />
+          <Link key={label} href="#" title={label} className="ns-nav-btn">
+            <Icon size={16} />
           </Link>
         ))}
       </div>
@@ -191,8 +308,8 @@ function Sidebar({ teacherId, accentColor }: { teacherId: string; accentColor: s
   );
 }
 
-// ── markdown renderer ──────────────────────────────────────────────────────
-function MdContent({ text, accent, streaming }: { text: string; accent: string; streaming?: boolean }) {
+// ── Markdown renderer ──────────────────────────────────────────────────────
+function MdContent({ text, streaming }: { text: string; streaming?: boolean }) {
   const lines = text.split("\n");
   return (
     <>
@@ -200,22 +317,30 @@ function MdContent({ text, accent, streaming }: { text: string; accent: string; 
         const isLast = i === lines.length - 1;
         if (line.startsWith("> "))
           return (
-            <blockquote
-              key={i}
-              className="pl-3 my-2 italic text-gray-400 text-sm"
-              style={{ borderLeft: `2px solid ${accent}` }}
-            >
+            <blockquote key={i} style={{
+              paddingLeft: 12, margin: "8px 0", fontStyle: "italic",
+              color: MONO.secondary, fontSize: 14,
+              borderLeft: `2px solid ${MONO.borderMid}`,
+            }}>
               {line.slice(2)}
             </blockquote>
           );
-        if (line === "") return <div key={i} className="h-2" />;
-        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+        if (line === "") return <div key={i} style={{ height: 8 }} />;
+
+        // Inline code backtick
+        const codeRe = /`([^`]+)`/g;
+        const boldRe = /\*\*([^*]+)\*\*/g;
+        let processed = line.replace(codeRe, '<code class="md-code">$1</code>');
+
+        const parts = processed.split(/(\*\*[^*]+\*\*)/g);
         return (
-          <p key={i} className={`leading-[1.65] m-0 ${streaming && isLast ? "stream-cursor" : ""}`}>
+          <p key={i} style={{ lineHeight: 1.7, margin: 0 }}
+            className={streaming && isLast ? "stream-cursor" : ""}
+          >
             {parts.map((p, j) =>
               p.startsWith("**") && p.endsWith("**")
-                ? <strong key={j} className="font-semibold text-gray-900">{p.slice(2, -2)}</strong>
-                : p
+                ? <strong key={j} style={{ fontWeight: 600, color: MONO.bright }}>{p.slice(2, -2)}</strong>
+                : <span key={j} dangerouslySetInnerHTML={{ __html: p }} />
             )}
           </p>
         );
@@ -224,71 +349,99 @@ function MdContent({ text, accent, streaming }: { text: string; accent: string; 
   );
 }
 
-// ── thinking dots ──────────────────────────────────────────────────────────
-function ThinkingBubble({ accent, name }: { accent: string; name: string }) {
+// ── Thinking bubble ────────────────────────────────────────────────────────
+function ThinkingBubble({ name }: { name: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { gsapFadeUp(ref.current); }, []);
   return (
-    <div className="anim-slideUp flex items-start gap-3 mb-6">
-      <div
-        className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white"
-        style={{ background: accent }}
-      >
-        AI
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold mb-1.5 text-gray-400 tracking-wide">{name}&apos;s AI Clone</p>
-        <div className="py-2 inline-flex items-center">
-          <span className="dot-pulse" style={{ color: accent }}>
-            <span /><span /><span />
-          </span>
+    <div ref={ref} style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "flex-start" }}>
+      <AiAvatar />
+      <div>
+        <p style={{ fontSize: 11, color: MONO.muted, marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+          {name}&apos;s AI Clone
+        </p>
+        <div style={{ paddingTop: 4 }}>
+          <span className="dot-pulse"><span /><span /><span /></span>
         </div>
       </div>
     </div>
   );
 }
 
-// ── user bubble ────────────────────────────────────────────────────────────
-function UserBubble({ content, animate }: { content: string; animate: boolean }) {
+function AiAvatar() {
   return (
-    <div className={`flex justify-end mb-4 ${animate ? "anim-slideRight" : ""}`}>
-      <div className="max-w-[72%] bg-gray-100 text-gray-800 rounded-[18px_18px_4px_18px] px-4 py-3 text-[15px] leading-relaxed">
+    <div style={{
+      width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+      background: MONO.elevated, border: `1px solid ${MONO.border}`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 10, fontWeight: 700, color: MONO.bright,
+      fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.02em",
+    }}>
+      AI
+    </div>
+  );
+}
+
+// ── User bubble ────────────────────────────────────────────────────────────
+function UserBubble({ content, animate }: { content: string; animate: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (animate) gsapSlideRight(ref.current); }, [animate]);
+  return (
+    <div ref={ref} style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+      <div style={{
+        maxWidth: "72%", background: MONO.elevated,
+        border: `1px solid ${MONO.borderMid}`,
+        color: MONO.bright,
+        borderRadius: "18px 18px 4px 18px",
+        padding: "10px 16px", fontSize: 15, lineHeight: 1.65,
+      }}>
         {content}
       </div>
     </div>
   );
 }
 
-// ── assistant bubble ───────────────────────────────────────────────────────
-function AssistantBubble({ content, accent, name, animate, streaming }: {
-  content: string; accent: string; name: string; animate: boolean; streaming?: boolean;
+// ── Assistant bubble ───────────────────────────────────────────────────────
+function AssistantBubble({ content, name, animate, streaming }: {
+  content: string; name: string; animate: boolean; streaming?: boolean;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  useEffect(() => { if (animate && !streaming) gsapFadeUp(ref.current); }, [animate, streaming]);
   const copy = () => { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 1500); };
 
   return (
-    <div className={`bubble-group flex items-start gap-3 mb-6 ${animate && !streaming ? "anim-slideUp" : ""}`}>
-      <div
-        className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0 mt-0.5 text-[11px] font-bold text-white"
-        style={{ background: accent }}
-      >
-        AI
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold mb-1.5 text-gray-400 tracking-wide">{name}&apos;s AI Clone</p>
-        <div className="pt-1 pb-3 text-[15px] leading-[1.75] text-gray-700">
-          <MdContent text={content || " "} accent={accent} streaming={streaming} />
+    <div ref={ref} className="bubble-group" style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "flex-start" }}>
+      <AiAvatar />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 11, color: MONO.muted, marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+          {name}&apos;s AI Clone
+        </p>
+        <div style={{ paddingTop: 4, paddingBottom: 12, fontSize: 15, lineHeight: 1.75, color: MONO.primary }}>
+          <MdContent text={content || " "} streaming={streaming} />
         </div>
         {!streaming && (
-          <div className="hover-actions flex items-center gap-1.5 mt-2">
-            <button
-              onClick={copy}
-              className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-100 border-none cursor-pointer transition-colors"
+          <div className="hover-actions" style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <button onClick={copy} style={{
+              display: "flex", alignItems: "center", gap: 4,
+              fontSize: 12, padding: "4px 8px", borderRadius: 6,
+              background: "transparent", color: MONO.muted,
+              border: `1px solid ${MONO.border}`, cursor: "pointer",
+              transition: "color 0.15s, background 0.15s",
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = MONO.bright; (e.currentTarget as HTMLElement).style.background = MONO.elevated; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = MONO.muted; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >
               <Copy size={11} /> {copied ? "Copied!" : "Copy"}
             </button>
             {[ThumbsUp, ThumbsDown].map((Icon, i) => (
-              <button
-                key={i}
-                className="p-1.5 rounded-md bg-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-100 border-none cursor-pointer transition-colors"
+              <button key={i} style={{
+                padding: 6, borderRadius: 6, background: "transparent",
+                color: MONO.muted, border: `1px solid ${MONO.border}`, cursor: "pointer",
+                transition: "color 0.15s, background 0.15s",
+              }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = MONO.bright; (e.currentTarget as HTMLElement).style.background = MONO.elevated; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = MONO.muted; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
                 <Icon size={11} />
               </button>
@@ -300,7 +453,7 @@ function AssistantBubble({ content, accent, name, animate, streaming }: {
   );
 }
 
-// ── streaming hook ─────────────────────────────────────────────────────────
+// ── Token stream hook ──────────────────────────────────────────────────────
 function useTokenStream(fullText: string | null, onDone: () => void) {
   const [displayed, setDisplayed] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -309,29 +462,25 @@ function useTokenStream(fullText: string | null, onDone: () => void) {
   useEffect(() => {
     if (fullText === null) { setDisplayed(""); idxRef.current = 0; return; }
     if (timerRef.current) clearTimeout(timerRef.current);
-    setDisplayed("");
-    idxRef.current = 0;
+    setDisplayed(""); idxRef.current = 0;
     const len = fullText.length;
     const base = len > 800 ? 5 : len > 300 ? 9 : 14;
-
     function tick() {
       idxRef.current++;
       setDisplayed(fullText!.slice(0, idxRef.current));
       if (idxRef.current < fullText!.length) {
         const ch = fullText![idxRef.current - 1];
         timerRef.current = setTimeout(tick, /[.!?,\n]/.test(ch) ? base * 5 : base);
-      } else {
-        onDone();
-      }
+      } else { onDone(); }
     }
     timerRef.current = setTimeout(tick, 60);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [fullText]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fullText]); // eslint-disable-line
 
   return displayed;
 }
 
-// ── main ───────────────────────────────────────────────────────────────────
+// ── Main ───────────────────────────────────────────────────────────────────
 export default function NotebookChatPage() {
   const params = useParams<{ teacherId: string }>();
   const searchParams = useSearchParams();
@@ -351,10 +500,34 @@ export default function NotebookChatPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const welcomeRef = useRef<HTMLDivElement>(null);
+  const topBarRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(0);
   const nid = () => `m${++idRef.current}`;
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, thinking, streamText]);
+
+  // Page entrance animation
+  useEffect(() => {
+    if (pageLoading) return;
+    const timer = setTimeout(() => {
+      const g = (window as any).gsap;
+      if (!g) return;
+      if (topBarRef.current) {
+        g.fromTo(topBarRef.current, { opacity: 0, y: -12 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" });
+      }
+      if (welcomeRef.current) {
+        const chips = welcomeRef.current.querySelectorAll(".ns-chip");
+        g.fromTo(welcomeRef.current.querySelector(".ns-welcome-heading"),
+          { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" });
+        g.fromTo(chips,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.4, stagger: 0.08, ease: "power2.out", delay: 0.2 }
+        );
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [pageLoading]);
 
   useEffect(() => {
     let mounted = true;
@@ -393,8 +566,7 @@ export default function NotebookChatPage() {
   const handleSend = async (text?: string) => {
     const content = (text ?? input).trim();
     if (!content || thinking || streamText !== null || !activeNotebook || content.length < 3) return;
-    setInput("");
-    setHasInteracted(true);
+    setInput(""); setHasInteracted(true);
     setMessages(p => [...p, { id: nid(), role: "user", content, timestamp: new Date() }]);
     setThinking(true);
     try {
@@ -404,8 +576,7 @@ export default function NotebookChatPage() {
         (session as any)?.backendAccessToken,
         { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: content, top_k: 5 }) }
       );
-      setThinking(false);
-      setStreamText(res.answer);
+      setThinking(false); setStreamText(res.answer);
     } catch {
       setThinking(false);
       setMessages(p => [...p, { id: nid(), role: "assistant", content: "Sorry, something went wrong. Please try again.", timestamp: new Date() }]);
@@ -418,12 +589,11 @@ export default function NotebookChatPage() {
   };
 
   if (pageLoading) return (
-    <div className="flex items-center justify-center h-screen bg-white">
-      <Loader2 size={18} className="animate-spin text-gray-300" />
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: MONO.bg }}>
+      <Loader2 size={18} style={{ color: MONO.muted, animation: "spin 1s linear infinite" }} />
     </div>
   );
 
-  const sty = activeNotebook ? subjectStyle(activeNotebook.subject) : DEFAULT_STYLE;
   const teacherName = teacher?.name ?? "Teacher";
   const firstName = teacherName.split(" ")[0];
   const isWelcome = !hasInteracted && messages.length <= 1;
@@ -434,71 +604,85 @@ export default function NotebookChatPage() {
   return (
     <>
       <InjectCSS />
-      <div className="flex h-screen bg-white font-sans overflow-hidden">
-        <Sidebar teacherId={teacherId} accentColor={sty.accent} />
+      <div className="ns-root" style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+        <Sidebar teacherId={teacherId} />
 
-        <div className="flex-1 flex flex-col overflow-hidden relative">
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
 
-          {/* ── top bar ── */}
-          <div className="flex-shrink-0 px-6 py-3 flex items-center justify-between border-b border-gray-100 bg-white z-10">
+          {/* ── Top bar ── */}
+          <div ref={topBarRef} style={{
+            flexShrink: 0, padding: "10px 24px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            borderBottom: `1px solid ${MONO.border}`, background: MONO.surface, zIndex: 10,
+          }}>
             {/* Notebook switcher */}
-            <div className="relative">
+            <div style={{ position: "relative" }}>
               <button
                 onClick={() => setNotebookOpen(!notebookOpen)}
-                className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl bg-transparent border-none cursor-pointer hover:bg-gray-50 transition-colors"
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "6px 10px", borderRadius: 12,
+                  background: "transparent", border: "none", cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = MONO.elevated)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ background: sty.chipBg }}
-                >
-                  <FileText size={13} style={{ color: sty.accent }} />
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: MONO.elevated, border: `1px solid ${MONO.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <FileText size={12} color={MONO.secondary} />
                 </div>
-                <div className="text-left">
-                  <p className="text-[15px] font-semibold text-gray-900 m-0 max-w-[200px] truncate">
+                <div style={{ textAlign: "left" }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: MONO.bright, margin: 0, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {activeNotebook?.title ?? "Select a notebook"}
                   </p>
-                  <p className="text-xs text-gray-400 m-0">
+                  <p style={{ fontSize: 11, color: MONO.muted, margin: 0 }}>
                     {activeNotebook ? `${activeNotebook.subject} · ${activeNotebook.chapterCount} docs` : "—"}
                   </p>
                 </div>
-                <ChevronDown
-                  size={13}
-                  className={`text-gray-400 ml-1 transition-transform duration-200 ${notebookOpen ? "rotate-180" : ""}`}
+                <ChevronDown size={12} color={MONO.muted}
+                  style={{ marginLeft: 4, transition: "transform 0.2s", transform: notebookOpen ? "rotate(180deg)" : "none" }}
                 />
               </button>
 
               {/* Dropdown */}
               {notebookOpen && notebooks.length > 0 && (
-                <div className="absolute top-[calc(100%+8px)] left-0 w-[300px] rounded-2xl bg-white border border-gray-200 shadow-xl z-30 p-2">
-                  <p className="text-[11px] font-bold tracking-widest text-gray-400 px-2 pb-2 pt-1 m-0 uppercase">
+                <div style={{
+                  position: "absolute", top: "calc(100% + 8px)", left: 0,
+                  width: 300, borderRadius: 16,
+                  background: MONO.surface, border: `1px solid ${MONO.borderMid}`,
+                  boxShadow: "0 20px 48px rgba(0,0,0,0.6)", zIndex: 30, padding: 8,
+                }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: MONO.muted, padding: "4px 8px 8px", margin: 0 }}>
                     Switch Notebook
                   </p>
                   {notebooks.map(nb => {
-                    const s = subjectStyle(nb.subject);
                     const active = nb.id === activeNotebook?.id;
                     return (
-                      <button
-                        key={nb.id}
-                        onClick={() => switchNotebook(nb)}
-                        className={`w-full flex items-center gap-2.5 p-2.5 rounded-[10px] border-none cursor-pointer text-left transition-colors
-                          ${active ? "bg-gray-50" : "bg-transparent hover:bg-gray-50"}`}
+                      <button key={nb.id} onClick={() => switchNotebook(nb)} style={{
+                        width: "100%", display: "flex", alignItems: "center", gap: 10,
+                        padding: 10, borderRadius: 10, border: "none", cursor: "pointer", textAlign: "left",
+                        background: active ? MONO.elevated : "transparent",
+                        transition: "background 0.15s",
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.background = MONO.elevated)}
+                        onMouseLeave={e => (e.currentTarget.style.background = active ? MONO.elevated : "transparent")}
                       >
-                        <div
-                          className="w-[30px] h-[30px] rounded-lg flex items-center justify-center"
-                          style={{ background: s.chipBg }}
-                        >
-                          <BookOpen size={13} style={{ color: s.accent }} />
+                        <div style={{
+                          width: 30, height: 30, borderRadius: 8,
+                          background: MONO.elevated, border: `1px solid ${MONO.border}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <BookOpen size={12} color={MONO.secondary} />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[15px] font-semibold text-gray-900 m-0 truncate">{nb.title}</p>
-                          <p className="text-xs text-gray-400 m-0">{nb.subject} · {nb.chapterCount} docs</p>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 14, fontWeight: 600, color: MONO.bright, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nb.title}</p>
+                          <p style={{ fontSize: 11, color: MONO.muted, margin: 0 }}>{nb.subject} · {nb.chapterCount} docs</p>
                         </div>
-                        {active && (
-                          <div
-                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                            style={{ background: sty.accent }}
-                          />
-                        )}
+                        {active && <div style={{ width: 6, height: 6, borderRadius: "50%", background: MONO.bright, flexShrink: 0 }} />}
                       </button>
                     );
                   })}
@@ -507,47 +691,57 @@ export default function NotebookChatPage() {
             </div>
 
             {/* Teacher chip */}
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-full">
-              <div
-                className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-xs font-bold text-white"
-                style={{ background: sty.accent }}
-              >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: "50%",
+                background: MONO.elevated, border: `1px solid ${MONO.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontWeight: 700, color: MONO.bright,
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
                 {firstName[0]}
               </div>
-              <span className="text-[15px] font-medium text-gray-600">{firstName}</span>
-              <ChevronDown size={12} className="text-gray-400" />
+              <span style={{ fontSize: 14, fontWeight: 500, color: MONO.secondary }}>{firstName}</span>
+              <ChevronDown size={12} color={MONO.muted} />
             </div>
           </div>
 
-          {/* ── messages ── */}
-          <div className="flex-1 overflow-y-auto relative">
-            {isWelcome && <OrbBg color={sty.glow} />}
-            <div className="max-w-[720px] mx-auto px-6 pt-8 pb-6 relative z-10">
+          {/* ── Messages ── */}
+          <div className="ns-scroll" style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+            {isWelcome && <div className="ns-orb" />}
+            <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px 24px", position: "relative", zIndex: 1 }}>
 
-              {/* Welcome state */}
+              {/* Welcome */}
               {isWelcome && (
-                <div className="anim-fadeIn mb-10">
-                  <h1 className="text-[32px] font-light text-gray-900 m-0 tracking-tight leading-tight">
-                    Hey! {firstName}
-                  </h1>
-                  <h2 className="text-[32px] font-light text-gray-400 mt-0 mb-8 tracking-tight leading-tight">
-                    What can I help with?
-                  </h2>
-                  <div className="flex gap-3 flex-wrap">
-                    {chips.map((p, i) => (
+                <div ref={welcomeRef} style={{ marginBottom: 48 }}>
+                  <div className="ns-welcome-heading">
+                    <h1 style={{ fontSize: 34, fontWeight: 300, color: MONO.bright, margin: 0, letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+                      Hey there.
+                    </h1>
+                    <h2 style={{ fontSize: 34, fontWeight: 300, color: MONO.muted, margin: "0 0 32px", letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+                      What can I help with?
+                    </h2>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {chips.map((p) => (
                       <button
                         key={p.label}
+                        className="ns-chip"
                         onClick={() => { setInput(p.label); inputRef.current?.focus(); }}
-                        className="flex flex-col gap-1 p-3 px-4 rounded-[14px] bg-transparent border border-gray-200 cursor-pointer text-left min-w-[145px] hover:bg-gray-50 hover:border-gray-300 transition-all"
-                        style={{ animationDelay: `${i * 60}ms` }}
+                        style={{
+                          display: "flex", flexDirection: "column", gap: 4,
+                          padding: "12px 16px", borderRadius: 14, minWidth: 140,
+                        }}
                       >
-                        <span
-                          className="text-[13px] font-semibold px-2 py-0.5 rounded-md inline-block mb-0.5"
-                          style={{ color: sty.accent, background: sty.chipBg }}
-                        >
+                        <span style={{
+                          fontSize: 13, fontWeight: 600, color: MONO.bright,
+                          background: MONO.elevated, padding: "2px 8px", borderRadius: 6,
+                          display: "inline-block", marginBottom: 2,
+                          border: `1px solid ${MONO.border}`,
+                        }}>
                           {p.label}
                         </span>
-                        <span className="text-xs text-gray-400">{p.sub}</span>
+                        <span style={{ fontSize: 12, color: MONO.muted }}>{p.sub}</span>
                       </button>
                     ))}
                   </div>
@@ -559,35 +753,30 @@ export default function NotebookChatPage() {
                 const isLatest = i === displayedMsgs.length - 1;
                 return msg.role === "user"
                   ? <UserBubble key={msg.id} content={msg.content} animate={isLatest} />
-                  : <AssistantBubble key={msg.id} content={msg.content} accent={sty.accent} name={teacherName} animate={isLatest} />;
+                  : <AssistantBubble key={msg.id} content={msg.content} name={teacherName} animate={isLatest} />;
               })}
 
-              {thinking && <ThinkingBubble accent={sty.accent} name={teacherName} />}
+              {thinking && <ThinkingBubble name={teacherName} />}
 
               {streamText !== null && (
-                <AssistantBubble
-                  content={streamDisplayed}
-                  accent={sty.accent}
-                  name={teacherName}
-                  animate={false}
-                  streaming
-                />
+                <AssistantBubble content={streamDisplayed} name={teacherName} animate={false} streaming />
               )}
 
               <div ref={bottomRef} />
             </div>
           </div>
 
-          {/* ── input bar ── */}
-          <div className="flex-shrink-0 px-6 pb-5 pt-4 bg-white border-t border-gray-100">
-            <div className="max-w-[720px] mx-auto">
-              <div className="rounded-[18px] bg-gray-50 border border-gray-200 p-3.5 flex flex-col gap-2.5 focus-within:border-gray-300 transition-colors">
-                <div className="flex items-start gap-2.5">
-                  <Sparkles
-                    size={16}
-                    className="mt-0.5 flex-shrink-0 opacity-80"
-                    style={{ color: sty.accent }}
-                  />
+          {/* ── Input bar ── */}
+          <div style={{ flexShrink: 0, padding: "16px 24px 20px", background: MONO.surface, borderTop: `1px solid ${MONO.border}` }}>
+            <div style={{ maxWidth: 720, margin: "0 auto" }}>
+              <div className="ns-input-box" style={{
+                borderRadius: 18, background: MONO.bg,
+                border: `1px solid ${MONO.border}`,
+                padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10,
+                transition: "border-color 0.18s",
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <Sparkles size={15} color={MONO.muted} style={{ marginTop: 2, flexShrink: 0 }} />
                   <textarea
                     ref={inputRef}
                     value={input}
@@ -600,33 +789,49 @@ export default function NotebookChatPage() {
                     placeholder={activeNotebook ? `Ask me anything about ${activeNotebook.subject}…` : "Select a notebook to start…"}
                     disabled={!activeNotebook || isBusy}
                     rows={1}
-                    className="flex-1 bg-transparent border-none outline-none resize-none text-[15px] leading-relaxed text-gray-800 placeholder:text-gray-400 max-h-[120px] font-sans disabled:opacity-50"
+                    style={{
+                      flex: 1, background: "transparent", border: "none", outline: "none",
+                      resize: "none", fontSize: 15, lineHeight: 1.65,
+                      color: MONO.bright, fontFamily: "'Inter', sans-serif",
+                      maxHeight: 120,
+                    }}
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <button className="flex items-center gap-1.5 text-[13px] px-2.5 py-1.5 rounded-lg bg-transparent border-none text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer transition-colors">
-                    <Paperclip size={12} /> Attach file
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <button style={{
+                    display: "flex", alignItems: "center", gap: 6, fontSize: 12,
+                    padding: "6px 10px", borderRadius: 8,
+                    background: "transparent", border: `1px solid ${MONO.border}`,
+                    color: MONO.muted, cursor: "pointer", transition: "color 0.15s, background 0.15s",
+                  }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = MONO.bright; (e.currentTarget as HTMLElement).style.background = MONO.elevated; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = MONO.muted; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
+                    <Paperclip size={11} /> Attach file
                   </button>
+
                   <button
+                    className="ns-send"
                     onClick={() => handleSend()}
                     disabled={!input.trim() || isBusy || !activeNotebook}
-                    className={`w-9 h-9 rounded-[10px] flex items-center justify-center border-none transition-all duration-200
-                      ${input.trim() && !isBusy
-                        ? "cursor-pointer hover:scale-105 active:scale-95"
-                        : "cursor-not-allowed opacity-40"
-                      }`}
-                    style={{ background: input.trim() && !isBusy ? sty.accent : "#e5e7eb" }}
+                    style={{
+                      width: 34, height: 34, borderRadius: 10,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      border: "none", cursor: input.trim() && !isBusy ? "pointer" : "not-allowed",
+                      background: input.trim() && !isBusy ? MONO.bright : MONO.elevated,
+                      opacity: input.trim() && !isBusy ? 1 : 0.4,
+                    }}
                   >
-                    <Send size={14} color={input.trim() && !isBusy ? "#fff" : "#9ca3af"} />
+                    <Send size={13} color={input.trim() && !isBusy ? MONO.bg : MONO.muted} />
                   </button>
                 </div>
               </div>
 
-              <p className="text-center text-xs mt-2 text-gray-300">
+              <p style={{ textAlign: "center", fontSize: 11, marginTop: 8, color: MONO.muted }}>
                 Answers are based on {teacherName}&apos;s notebooks ·{" "}
-                <kbd className="font-mono">Enter</kbd> to send,{" "}
-                <kbd className="font-mono">Shift+Enter</kbd> for new line
+                <kbd style={{ fontFamily: "'JetBrains Mono', monospace" }}>Enter</kbd> to send,{" "}
+                <kbd style={{ fontFamily: "'JetBrains Mono', monospace" }}>Shift+Enter</kbd> for new line
               </p>
             </div>
           </div>
