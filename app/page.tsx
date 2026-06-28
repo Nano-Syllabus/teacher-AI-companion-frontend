@@ -10,7 +10,7 @@ import {
   Sparkles, Brain, Zap, Shield,
 } from "lucide-react";
 import Link from "next/link";
-
+import { useSession } from "next-auth/react";
 /* ─── constants ─── */
 const NAV_LINKS = [
   { label: "How it works", href: "#how" },
@@ -77,7 +77,7 @@ export default function Page() {
   const aiRef           = useRef<HTMLDivElement>(null);
   const ctaRef          = useRef<HTMLDivElement>(null);
   const floatRefs       = useRef<(HTMLDivElement | null)[]>([]);
-
+  const { data: session } = useSession();
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
@@ -239,7 +239,7 @@ export default function Page() {
           ))}
         </nav>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <a href="/auth" className="mag" style={{ padding: "8px 20px", fontSize: 13, fontWeight: 500, color: "#000", border: "1px solid #e5e5e5", borderRadius: 8, textDecoration: "none", display: "inline-block" }}>Sign in</a>
+          <a href="/auth" className="mag" style={{ padding: "8px 20px", fontSize: 13, fontWeight: 500, color: "#000", border: "1px solid #e5e5e5", borderRadius: 8, textDecoration: "none", display: "inline-block" }}>{session ? 'Sign Out' : 'Sign In'}</a>
           <a href="#" className="mag" style={{ padding: "8px 20px", fontSize: 13, fontWeight: 600, color: "#fff", background: "#000", borderRadius: 8, textDecoration: "none", display: "inline-block" }}>Get access</a>
         </div>
       </header>
